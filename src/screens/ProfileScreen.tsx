@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User as UserIcon, Mail, Phone, MapPin, Shield, Camera, Save, Lock, Bell, Globe, CheckCircle2 } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, MapPin, Shield, Camera, Save, Lock, Bell, Globe, CheckCircle2, FileText, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import { MOCK_USERS } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole, User } from '../types';
+import { api } from '../api';
 
 interface ProfileScreenProps {
   userRole: UserRole;
@@ -10,7 +11,6 @@ interface ProfileScreenProps {
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) => {
-  // Use currentUser as the base truth
   const [user, setUser] = useState<User>({
     id: currentUser.id || '0',
     name: currentUser.name || 'Usuario',
@@ -18,20 +18,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
     role: userRole,
     status: 'Activo',
     lastLogin: 'Ahora',
-    initials: currentUser.initials || 'U'
+    initials: currentUser.initials || 'U',
+    kyc_estado: (localStorage.getItem('kyc_estado') as any) || 'Pendiente' // default mockup
   });
-  const [activeTab, setActiveTab] = useState<'info' | 'security' | 'preferences'>('info');
+  
+  const [activeTab, setActiveTab] = useState<'info' | 'security' | 'preferences' | 'kyc'>('info');
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // KYC specific states
+  const [ciFront, setCiFront] = useState<string | null>(null);
+  const [ciBack, setCiBack] = useState<string | null>(null);
+  const [selfie, setSelfie] = useState<string | null>(null);
+  const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+
   // Additional state for preferences and security
   const [bio, setBio] = useState('');
-  const [language, setLanguage] = useState('Español (México)');
-  const [timezone, setTimezone] = useState('(GMT-06:00) Mexico City');
+  const [language, setLanguage] = useState('Español (Bolivia)');
+  const [timezone, setTimezone] = useState('(GMT-04:00) La Paz');
   const [twoFactor, setTwoFactor] = useState(true);
 
-  // Load from localStorage on mount
   useEffect(() => {
     if (currentUser && currentUser.name !== 'Cargando...') {
        setUser(prev => ({
@@ -59,9 +66,56 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
     }
   };
 
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleKycFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'front' | 'back' | 'selfie') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const base64 = await convertToBase64(file);
+        if (type === 'front') setCiFront(base64);
+        if (type === 'back') setCiBack(base64);
+        if (type === 'selfie') setSelfie(base64);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleKycSubmit = async () => {
+    if (!ciFront || !ciBack || !selfie) {
+      alert('Por favor, selecciona las tres imágenes solicitadas.');
+      return;
+    }
+
+    setIsSubmittingKyc(true);
+    try {
+      const response = await api.submitKyc(user.id, ciFront, ciBack, selfie);
+      // Assume response contains updated kyc status
+      const newStatus = response?.kyc_estado || 'Pendiente';
+      setUser(prev => ({ ...prev, kyc_estado: newStatus }));
+      localStorage.setItem('kyc_estado', newStatus);
+      alert('Tus documentos de identidad han sido enviados con éxito y están en revisión.');
+      setCiFront(null);
+      setCiBack(null);
+      setSelfie(null);
+    } catch (err) {
+      console.error(err);
+      alert('Error al subir los documentos.');
+    } finally {
+      setIsSubmittingKyc(false);
+    }
+  };
+
   const handleSave = () => {
     setIsSaving(true);
-    // Simulate API call
     setTimeout(() => {
       const dataToSave = {
         ...user,
@@ -148,12 +202,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
             
             <div className="mt-8 pt-8 border-t border-primary/10 flex items-center justify-center gap-6">
               <div className="text-center">
-                <p className="text-xl font-black text-white">124</p>
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Ventas</p>
+                <p className="text-xl font-black text-white">12</p>
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Publicados</p>
               </div>
               <div className="w-px h-8 bg-primary/10"></div>
               <div className="text-center">
-                <p className="text-xl font-black text-white">98%</p>
+                <p className="text-xl font-black text-white">100%</p>
                 <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Rating</p>
               </div>
             </div>
@@ -165,6 +219,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
               onClick={() => setActiveTab('info')} 
               icon={<UserIcon size={20} />} 
               label="Información" 
+            />
+            <ProfileTabButton 
+              active={activeTab === 'kyc'} 
+              onClick={() => setActiveTab('kyc')} 
+              icon={<FileText size={20} />} 
+              label="Identidad (KYC)" 
             />
             <ProfileTabButton 
               active={activeTab === 'security'} 
@@ -235,10 +295,111 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
                     <textarea 
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
-                      className="w-full bg-background-dark/30 border border-primary/10 rounded-3xl py-5 px-6 text-white focus:outline-none focus:border-primary transition-all h-40 resize-none placeholder:text-slate-600"
+                      className="w-full bg-background-dark/30 border border-primary/10 rounded-3xl py-5 px-6 text-white focus:outline-none focus:border-primary transition-all h-40 resize-none placeholder:text-slate-600 font-bold"
                       placeholder="Cuéntanos un poco sobre ti..."
                     ></textarea>
                   </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'kyc' && (
+                <motion.div 
+                  key="kyc"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-8"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                      <FileText size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-white tracking-tight">Verificación de Identidad (KYC)</h3>
+                      <p className="text-slate-400 text-sm">Sube tu Cédula de Identidad boliviana para habilitar transacciones</p>
+                    </div>
+                  </div>
+
+                  {/* Status Indicator */}
+                  <div className={`p-6 border rounded-[24px] flex items-center gap-4 ${
+                    user.kyc_estado === 'Aprobado' ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
+                    user.kyc_estado === 'Pendiente' ? 'bg-amber-500/5 border-amber-500/20 text-amber-400' :
+                    'bg-rose-500/5 border-rose-500/20 text-rose-400'
+                  }`}>
+                    {user.kyc_estado === 'Aprobado' ? <CheckCircle2 size={24} /> :
+                     user.kyc_estado === 'Pendiente' ? <RefreshCw className="animate-spin" size={24} /> :
+                     <XCircle size={24} />}
+                    <div>
+                      <h4 className="font-black text-white text-base">Estado: {user.kyc_estado}</h4>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {user.kyc_estado === 'Aprobado' ? 'Tu cuenta está totalmente verificada para vender y comprar en Bolivia.' :
+                         user.kyc_estado === 'Pendiente' ? 'Nuestros agentes están validando tu Cédula de Identidad. Duración estimada: 24h.' :
+                         'Tus fotos no fueron claras o no coinciden. Por favor, vuelve a intentarlo.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {user.kyc_estado !== 'Aprobado' && (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        {/* CI Frontal */}
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">CI Frontal</span>
+                          <div className="aspect-[4/3] bg-background-dark/30 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-all rounded-3xl flex flex-col items-center justify-center p-4 text-center cursor-pointer relative overflow-hidden">
+                            {ciFront ? (
+                              <img src={ciFront} alt="CI Frontal" className="w-full h-full object-cover absolute inset-0" />
+                            ) : (
+                              <>
+                                <Camera size={24} className="text-primary mb-2" />
+                                <p className="text-[11px] font-black text-white">Subir Foto Frontal</p>
+                              </>
+                            )}
+                            <input type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, 'front')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                          </div>
+                        </div>
+
+                        {/* CI Reverso */}
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">CI Reverso</span>
+                          <div className="aspect-[4/3] bg-background-dark/30 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-all rounded-3xl flex flex-col items-center justify-center p-4 text-center cursor-pointer relative overflow-hidden">
+                            {ciBack ? (
+                              <img src={ciBack} alt="CI Reverso" className="w-full h-full object-cover absolute inset-0" />
+                            ) : (
+                              <>
+                                <Camera size={24} className="text-primary mb-2" />
+                                <p className="text-[11px] font-black text-white">Subir Foto Reverso</p>
+                              </>
+                            )}
+                            <input type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, 'back')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                          </div>
+                        </div>
+
+                        {/* Selfie */}
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-1">Selfie sosteniendo CI</span>
+                          <div className="aspect-[4/3] bg-background-dark/30 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-all rounded-3xl flex flex-col items-center justify-center p-4 text-center cursor-pointer relative overflow-hidden">
+                            {selfie ? (
+                              <img src={selfie} alt="Selfie" className="w-full h-full object-cover absolute inset-0" />
+                            ) : (
+                              <>
+                                <Camera size={24} className="text-primary mb-2" />
+                                <p className="text-[11px] font-black text-white">Subir Selfie</p>
+                              </>
+                            )}
+                            <input type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, 'selfie')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleKycSubmit}
+                        disabled={isSubmittingKyc || !ciFront || !ciBack || !selfie}
+                        className="w-full bg-primary text-background-dark font-black py-4 rounded-2xl glow-shadow hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        {isSubmittingKyc ? 'Enviando...' : 'Enviar Documentos para Revisión'}
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -325,9 +486,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
                           onChange={(e) => setLanguage(e.target.value)}
                           className="w-full bg-background-dark/30 border border-primary/10 rounded-3xl py-5 pl-14 pr-6 text-white focus:outline-none focus:border-primary appearance-none transition-all font-bold"
                         >
-                          <option>Español (México)</option>
+                          <option>Español (Bolivia)</option>
                           <option>English (US)</option>
-                          <option>Português</option>
                         </select>
                       </div>
                     </div>
@@ -338,7 +498,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
                         onChange={(e) => setTimezone(e.target.value)}
                         className="w-full bg-background-dark/30 border border-primary/10 rounded-3xl py-5 px-6 text-white focus:outline-none focus:border-primary appearance-none transition-all font-bold"
                       >
-                        <option>(GMT-06:00) Mexico City</option>
+                        <option>(GMT-04:00) La Paz</option>
                         <option>(GMT-05:00) New York</option>
                         <option>(UTC) London</option>
                       </select>

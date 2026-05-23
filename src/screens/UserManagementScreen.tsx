@@ -17,14 +17,16 @@ interface UsuarioAPI {
   iniciales: string;
   avatar?: string;
   ultimo_login: string;
+  kyc_estado?: string;
 }
 
 type ModalMode = 'crear' | 'editar' | 'eliminar' | 'reset' | null;
 
 const ROL_COLORES: Record<string, string> = {
-  admin:   'bg-violet-500/10 text-violet-400 border-violet-500/20',
-  cajero:  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  cliente: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+  admin:     'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  vendedor:  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  comprador: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  inspector: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 };
 
 // ─── Componente principal ─────────────────────────────
@@ -37,6 +39,7 @@ const UserManagementScreen: React.FC = () => {
   const [buscar, setBuscar] = useState('');
   const [filtroRol, setFiltroRol] = useState('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroKyc, setFiltroKyc] = useState('todos');
 
   // Modal
   const [modalMode, setModalMode] = useState<ModalMode>(null);
@@ -50,7 +53,7 @@ const UserManagementScreen: React.FC = () => {
   const [verLogs, setVerLogs] = useState(false);
 
   // Formulario crear/editar
-  const [form, setForm] = useState({ nombre: '', correo: '', rol: 'cajero', estado: 'Activo', contrasena: '', confirmar: '' });
+  const [form, setForm] = useState({ nombre: '', correo: '', rol: 'comprador', estado: 'Activo', contrasena: '', confirmar: '', kyc_estado: 'Pendiente' });
   const [mostrarPass, setMostrarPass] = useState(false);
   const [resetCorreo, setResetCorreo] = useState('');
   const [resetNueva, setResetNueva] = useState('');
@@ -61,19 +64,22 @@ const UserManagementScreen: React.FC = () => {
     setError('');
     try {
       const data = await api.getUsuarios({ buscar, rol: filtroRol, estado: filtroEstado });
-      // Blindaje Master: Si no es array, forzar array vacío
       if (!data || !Array.isArray(data)) {
         console.error("API no devolvió un array:", data);
         setUsuarios([]);
       } else {
-        setUsuarios(data);
+        let finalData = data;
+        if (filtroKyc !== 'todos') {
+          finalData = data.filter((u: any) => u.kyc_estado === filtroKyc);
+        }
+        setUsuarios(finalData);
       }
     } catch (e: any) {
       setError(e.message || 'Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
-  }, [buscar, filtroRol, filtroEstado]);
+  }, [buscar, filtroRol, filtroEstado, filtroKyc]);
 
   useEffect(() => {
     const timer = setTimeout(() => cargarUsuarios(), 300);
@@ -83,19 +89,19 @@ const UserManagementScreen: React.FC = () => {
   // ── Stats ────────────────────────────────────────────
   const total    = usuarios.length;
   const activos  = usuarios.filter(u => u.estado === 'Activo').length;
-  const inactivos= usuarios.filter(u => u.estado === 'Inactivo').length;
+  const kycPendientes = usuarios.filter(u => u.kyc_estado === 'Pendiente').length;
   const admins   = usuarios.filter(u => u.rol === 'admin').length;
 
   // ── Abrir modales ────────────────────────────────────
   const abrirCrear = () => {
-    setForm({ nombre: '', correo: '', rol: 'cajero', estado: 'Activo', contrasena: '', confirmar: '' });
+    setForm({ nombre: '', correo: '', rol: 'comprador', estado: 'Activo', contrasena: '', confirmar: '', kyc_estado: 'Pendiente' });
     setModalError(''); setModalSuccess('');
     setModalMode('crear');
   };
 
   const abrirEditar = (u: UsuarioAPI) => {
     setUsuarioSeleccionado(u);
-    setForm({ nombre: u.nombre, correo: u.correo, rol: u.rol, estado: u.estado, contrasena: '', confirmar: '' });
+    setForm({ nombre: u.nombre, correo: u.correo, rol: u.rol, estado: u.estado, contrasena: '', confirmar: '', kyc_estado: u.kyc_estado || 'Pendiente' });
     setModalError(''); setModalSuccess('');
     setModalMode('editar');
   };
@@ -136,7 +142,7 @@ const UserManagementScreen: React.FC = () => {
     if (form.contrasena && form.contrasena !== form.confirmar) { setModalError('Las contraseñas no coinciden'); return; }
     setModalLoading(true); setModalError('');
     try {
-      const payload: any = { nombre: form.nombre, correo: form.correo, rol: form.rol, estado: form.estado };
+      const payload: any = { nombre: form.nombre, correo: form.correo, rol: form.rol, estado: form.estado, kyc_estado: form.kyc_estado };
       if (form.contrasena) payload.nueva_contrasena = form.contrasena;
       await api.actualizarUsuario(usuarioSeleccionado.id, payload);
       setModalSuccess('¡Usuario actualizado!');
@@ -222,7 +228,7 @@ const UserManagementScreen: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={<Users className="text-blue-400" size={22}/>} label="Total" value={total} color="blue" />
         <StatCard icon={<UserCheck className="text-emerald-400" size={22}/>} label="Activos" value={activos} color="emerald" />
-        <StatCard icon={<UserMinus className="text-rose-400" size={22}/>} label="Inactivos" value={inactivos} color="rose" />
+        <StatCard icon={<Clock className="text-amber-400" size={22}/>} label="KYC Pendiente" value={kycPendientes} color="amber" />
         <StatCard icon={<ShieldCheck className="text-violet-400" size={22}/>} label="Admins" value={admins} color="violet" />
       </div>
 
@@ -245,8 +251,9 @@ const UserManagementScreen: React.FC = () => {
         >
           <option value="todos">Todos los roles</option>
           <option value="admin">Admin</option>
-          <option value="cajero">Cajero</option>
-          <option value="cliente">Cliente</option>
+          <option value="vendedor">Vendedor</option>
+          <option value="comprador">Comprador</option>
+          <option value="inspector">Inspector</option>
         </select>
         <select
           value={filtroEstado}
@@ -256,6 +263,16 @@ const UserManagementScreen: React.FC = () => {
           <option value="todos">Todos los estados</option>
           <option value="Activo">Activo</option>
           <option value="Inactivo">Inactivo</option>
+        </select>
+        <select
+          value={filtroKyc}
+          onChange={e => setFiltroKyc(e.target.value)}
+          className="bg-background-dark/60 border border-primary/10 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-primary/50"
+        >
+          <option value="todos">Todos los KYC</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Aprobado">Aprobado</option>
+          <option value="Rechazado">Rechazado</option>
         </select>
         <button onClick={cargarUsuarios} className="p-2.5 bg-background-dark/60 border border-primary/10 rounded-xl text-slate-400 hover:text-primary transition-colors">
           <RefreshCw size={18} />
@@ -288,6 +305,7 @@ const UserManagementScreen: React.FC = () => {
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Usuario</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Rol</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado KYC</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Último Login</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
                 </tr>
@@ -317,6 +335,15 @@ const UserManagementScreen: React.FC = () => {
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${u.estado === 'Activo' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' : 'bg-rose-400/10 text-rose-400 border-rose-400/20'}`}>
                         {u.estado}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        u.kyc_estado === 'Aprobado' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' :
+                        u.kyc_estado === 'Rechazado' ? 'bg-rose-400/10 text-rose-400 border-rose-400/20' :
+                        'bg-amber-400/10 text-amber-400 border-amber-400/20'
+                      }`}>
+                        {u.kyc_estado || 'Pendiente'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -401,18 +428,30 @@ const UserManagementScreen: React.FC = () => {
                         />
                       </Field>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <Field label="Rol">
                         <select value={form.rol} onChange={e => setForm(p=>({...p, rol: e.target.value}))} className="input-field">
                           <option value="admin">Administrador</option>
-                          <option value="cajero">Cajero</option>
-                          <option value="cliente">Cliente</option>
+                          <option value="vendedor">Vendedor</option>
+                          <option value="comprador">Comprador</option>
+                          <option value="inspector">Inspector</option>
                         </select>
                       </Field>
                       <Field label="Estado">
-                        <select value={form.estado} onChange={e => setForm(p=>({...p, estado: e.target.value}))} className="input-field">
+                        <select value={form.estado} onChange={e => setForm(p=>({ ...p, estado: e.target.value }))} className="input-field">
                           <option value="Activo">Activo</option>
                           <option value="Inactivo">Inactivo</option>
+                        </select>
+                      </Field>
+                      <Field label="Estado KYC">
+                        <select
+                          value={form.kyc_estado}
+                          onChange={e => setForm(p => ({ ...p, kyc_estado: e.target.value }))}
+                          className="input-field"
+                        >
+                          <option value="Pendiente">Pendiente</option>
+                          <option value="Aprobado">Aprobado</option>
+                          <option value="Rechazado">Rechazado</option>
                         </select>
                       </Field>
                     </div>

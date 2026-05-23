@@ -9,7 +9,7 @@ export interface Product {
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 }
 
-export type UserRole = 'admin' | 'cajero' | 'cliente';
+export type UserRole = 'admin' | 'vendedor' | 'comprador' | 'inspector';
 
 export interface User {
   id: string;
@@ -17,6 +17,7 @@ export interface User {
   email: string;
   role: UserRole;
   status: 'Activo' | 'Inactivo' | 'Pendiente';
+  kyc_estado?: 'Pendiente' | 'Aprobado' | 'Rechazado';
   lastLogin: string;
   initials: string;
   avatar?: string;

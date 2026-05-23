@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from database import Base
+from .database import Base
 import datetime
 
 # --- TABLAS DE APOYO (Deben definirse primero) ---
@@ -35,13 +35,18 @@ class Usuario(Base):
     id = Column(String, primary_key=True, index=True)
     nombre = Column(String)
     correo = Column(String, unique=True, index=True)
-    contrasena_encriptada = Column(String) 
-    rol = Column(String) # admin, cajero, cliente
+    contrasena_encriptada = Column(String)
+    rol = Column(String)  # admin, vendedor, comprador, inspector
     estado = Column(String, default="Activo")
+    kyc_estado = Column(String, default="Pendiente")
     iniciales = Column(String)
     avatar = Column(String, nullable=True)
-    ultimo_login = Column(DateTime, nullable=True)  # Último inicio de sesión
-
+    ultimo_login = Column(DateTime, nullable=True)
+    # Nuevas relaciones
+    anuncios = relationship("Anuncio", back_populates="vendedor", cascade="all, delete-orphan")
+    ofertas = relationship("Oferta", back_populates="comprador", cascade="all, delete-orphan")
+    inspecciones = relationship("Inspeccion", back_populates="inspector", cascade="all, delete-orphan")
+    calificaciones = relationship("Calificacion", back_populates="autor", cascade="all, delete-orphan")
     ventas = relationship("Venta", back_populates="cajero")
     movimientos = relationship("MovimientoInventario", back_populates="usuario")
 
@@ -107,9 +112,62 @@ class Venta(Base):
 
     detalles = relationship("DetalleVenta", back_populates="venta")
 
+
+class Anuncio(Base):
+    __tablename__ = "anuncios"
+
+    id = Column(String, primary_key=True, index=True)
+    titulo = Column(String, nullable=False)
+    descripcion = Column(String, nullable=False)
+    vin = Column(String, nullable=False)
+    precio = Column(Float, nullable=False)
+    fotos = Column(String)  # JSON list of URLs
+    fecha_publicacion = Column(DateTime, default=datetime.datetime.utcnow)
+    estado = Column(String, default="Borrador")  # Borrador, Activo, EnInspeccion, Rechazado
+    vendedor_id = Column(String, ForeignKey("usuarios.id"))
+    vendedor = relationship("Usuario", back_populates="anuncios")
+    ofertas = relationship("Oferta", back_populates="anuncio", cascade="all, delete-orphan")
+    inspeccion = relationship("Inspeccion", back_populates="anuncio", uselist=False, cascade="all, delete-orphan")
+
+class Oferta(Base):
+    __tablename__ = "ofertas"
+
+    id = Column(String, primary_key=True, index=True)
+    monto = Column(Float, nullable=False)
+    fecha_expiracion = Column(DateTime, nullable=False)
+    estado = Column(String, default="Pendiente")  # Pendiente, Aceptada, Rechazada, Expirada
+    comprador_id = Column(String, ForeignKey("usuarios.id"))
+    comprador = relationship("Usuario", back_populates="ofertas")
+    anuncio_id = Column(String, ForeignKey("anuncios.id"))
+    anuncio = relationship("Anuncio", back_populates="ofertas")
+
+class Inspeccion(Base):
+    __tablename__ = "inspecciones"
+
+    id = Column(String, primary_key=True, index=True)
+    fecha_solicitud = Column(DateTime, default=datetime.datetime.utcnow)
+    fecha_realizacion = Column(DateTime, nullable=True)
+    informe_url = Column(String, nullable=True)
+    estado = Column(String, default="Pendiente")  # Pendiente, Realizada, Rechazada
+    inspector_id = Column(String, ForeignKey("usuarios.id"))
+    inspector = relationship("Usuario", back_populates="inspecciones")
+    anuncio_id = Column(String, ForeignKey("anuncios.id"), unique=True)
+    anuncio = relationship("Anuncio", back_populates="inspeccion")
+
+class Calificacion(Base):
+    __tablename__ = "calificaciones"
+
+    id = Column(String, primary_key=True, index=True)
+    puntaje = Column(Integer, nullable=False)  # 1‑5
+    comentario = Column(String, nullable=True)
+    autor_id = Column(String, ForeignKey("usuarios.id"))
+    autor = relationship("Usuario", back_populates="calificaciones")
+    objetivo_id = Column(String, nullable=False)  # id del anuncio, oferta o inspección evaluada
+    tipo_objetivo = Column(String, nullable=False)  # "Anuncio", "Oferta", "Inspeccion"
+
 class DetalleVenta(Base):
     __tablename__ = "detalles_venta"
-
+    
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     venta_id = Column(String, ForeignKey("ventas.id"))
     producto_id = Column(String, ForeignKey("productos.id"))

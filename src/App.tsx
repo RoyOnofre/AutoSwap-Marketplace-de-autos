@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Info,
-  XCircle
+  XCircle,
+  Car,
+  ClipboardCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Screen, UserRole, Notification } from './types';
@@ -147,18 +149,43 @@ const App: React.FC = () => {
   const getRoleColor = () => {
     switch (userRole) {
       case 'admin': return 'primary';
-      case 'cajero': return 'emerald-500';
-      case 'cliente': return 'violet-500';
+      case 'vendedor': return 'emerald-500';
+      case 'comprador': return 'blue-500';
+      case 'inspector': return 'violet-500';
       default: return 'primary';
     }
   };
 
   const roleColor = getRoleColor();
-  const roleBorderColor = userRole === 'admin' ? 'border-primary/10' : userRole === 'cajero' ? 'border-emerald-500/20' : 'border-violet-500/20';
-  const roleBgColor = userRole === 'admin' ? 'bg-primary' : userRole === 'cajero' ? 'bg-emerald-500' : 'bg-violet-500';
-  const roleTextColor = userRole === 'admin' ? 'text-primary' : userRole === 'cajero' ? 'text-emerald-500' : 'text-violet-500';
-  const roleHoverBg = userRole === 'admin' ? 'hover:bg-primary/10' : userRole === 'cajero' ? 'hover:bg-emerald-500/10' : 'hover:bg-violet-500/10';
-  const roleHoverText = userRole === 'admin' ? 'hover:text-primary' : userRole === 'cajero' ? 'hover:text-emerald-500' : 'hover:text-violet-500';
+  const roleBorderColor = 
+    userRole === 'admin' ? 'border-primary/10' : 
+    userRole === 'vendedor' ? 'border-emerald-500/20' : 
+    userRole === 'comprador' ? 'border-blue-500/20' : 
+    'border-violet-500/20';
+
+  const roleBgColor = 
+    userRole === 'admin' ? 'bg-primary' : 
+    userRole === 'vendedor' ? 'bg-emerald-500' : 
+    userRole === 'comprador' ? 'bg-blue-500' : 
+    'bg-violet-500';
+
+  const roleTextColor = 
+    userRole === 'admin' ? 'text-primary' : 
+    userRole === 'vendedor' ? 'text-emerald-500' : 
+    userRole === 'comprador' ? 'text-blue-500' : 
+    'text-violet-500';
+
+  const roleHoverBg = 
+    userRole === 'admin' ? 'hover:bg-primary/10' : 
+    userRole === 'vendedor' ? 'hover:bg-emerald-500/10' : 
+    userRole === 'comprador' ? 'hover:bg-blue-500/10' : 
+    'hover:bg-violet-500/10';
+
+  const roleHoverText = 
+    userRole === 'admin' ? 'hover:text-primary' : 
+    userRole === 'vendedor' ? 'hover:text-emerald-500' : 
+    userRole === 'comprador' ? 'hover:text-blue-500' : 
+    'hover:text-violet-500';
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -170,7 +197,7 @@ const App: React.FC = () => {
         return <DashboardScreen userRole={userRole} onNavigate={navigateTo} />;
       case 'inventory':
         return (
-          <ProtectedRoute allowedRoles={['admin']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
+          <ProtectedRoute allowedRoles={['admin', 'vendedor', 'comprador', 'inspector']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
             <InventoryScreen userRole={userRole} onSelectProduct={(id) => navigateTo('product-detail', id)} onAddProduct={() => navigateTo('add-product')} />
           </ProtectedRoute>
         );
@@ -178,12 +205,16 @@ const App: React.FC = () => {
         return <ProductDetailScreen productId={selectedProductId || '1'} userRole={userRole} onBack={() => navigateTo('inventory')} />;
       case 'add-product':
         return (
-          <ProtectedRoute allowedRoles={['admin']} userRole={userRole} onAccessDenied={() => navigateTo('inventory')}>
+          <ProtectedRoute allowedRoles={['admin', 'vendedor']} userRole={userRole} onAccessDenied={() => navigateTo('inventory')}>
             <AddProductScreen onBack={() => navigateTo('inventory')} />
           </ProtectedRoute>
         );
       case 'pos':
-        return <POSScreen userRole={userRole} />;
+        return (
+          <ProtectedRoute allowedRoles={['admin', 'comprador']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
+            <POSScreen userRole={userRole} />
+          </ProtectedRoute>
+        );
       case 'reports':
         return (
           <ProtectedRoute allowedRoles={['admin']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
@@ -193,7 +224,11 @@ const App: React.FC = () => {
       case 'profile':
         return <ProfileScreen userRole={userRole} currentUser={currentUser} />;
       case 'sales-history':
-        return <SalesHistoryScreen userRole={userRole} />;
+        return (
+          <ProtectedRoute allowedRoles={['admin', 'vendedor', 'comprador', 'inspector']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
+            <SalesHistoryScreen userRole={userRole} />
+          </ProtectedRoute>
+        );
       case 'settings':
         return (
           <ProtectedRoute allowedRoles={['admin']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
@@ -214,8 +249,9 @@ const App: React.FC = () => {
   const showSidebar = !['login', 'register'].includes(currentScreen);
 
   const getBgColor = () => {
-    if (userRole === 'cajero') return 'bg-[#0a1a1a]'; // Darker teal for cashier
-    if (userRole === 'cliente') return 'bg-[#1a1022]'; // Darker violet for client
+    if (userRole === 'vendedor') return 'bg-[#0a1a14]'; // Darker emerald for seller
+    if (userRole === 'comprador') return 'bg-[#0a1420]'; // Darker blue for buyer
+    if (userRole === 'inspector') return 'bg-[#150f22]'; // Darker violet for inspector
     return 'bg-background-dark';
   };
 
@@ -232,9 +268,9 @@ const App: React.FC = () => {
           >
             <div className="p-6 flex items-center gap-3">
               <div className={`w-10 h-10 ${roleBgColor} rounded-lg flex items-center justify-center glow-shadow`}>
-                <Package className="text-background-dark" size={24} />
+                <Car className="text-background-dark" size={24} />
               </div>
-              <h1 className="text-xl font-bold tracking-tight text-white">TechStore<span className={roleTextColor}>Pro</span></h1>
+              <h1 className="text-xl font-black tracking-tight text-white">Auto<span className={roleTextColor}>Swap</span></h1>
             </div>
 
             <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto scrollbar-hide">
@@ -247,48 +283,43 @@ const App: React.FC = () => {
               />
 
               {userRole === 'admin' && (
-                <>
-                  <SidebarItem 
-                    icon={<Users size={20} />} 
-                    label="Usuarios" 
-                    active={currentScreen === 'user-management'} 
-                    onClick={() => navigateTo('user-management')}
-                    roleColor={roleColor}
-                    badge="3"
-                  />
-                  <SidebarItem 
-                    icon={<Package size={20} />} 
-                    label="Inventario" 
-                    active={currentScreen === 'inventory' || currentScreen === 'product-detail' || currentScreen === 'add-product'} 
-                    onClick={() => navigateTo('inventory')}
-                    roleColor={roleColor}
-                  />
-                </>
+                <SidebarItem 
+                  icon={<Users size={20} />} 
+                  label="Gestión de Usuarios" 
+                  active={currentScreen === 'user-management'} 
+                  onClick={() => navigateTo('user-management')}
+                  roleColor={roleColor}
+                />
               )}
 
-              {userRole === 'cliente' && (
-                <>
-                  <SidebarItem 
-                    icon={<Package size={20} />} 
-                    label="Catálogo" 
-                    active={currentScreen === 'inventory'} 
-                    onClick={() => navigateTo('inventory')}
-                    roleColor={roleColor}
-                  />
-                  <SidebarItem 
-                    icon={<ShoppingCart size={20} />} 
-                    label="Tienda / Comprar" 
-                    active={currentScreen === 'pos'} 
-                    onClick={() => navigateTo('pos')}
-                    roleColor={roleColor}
-                  />
-                </>
+              {(userRole === 'admin' || userRole === 'comprador' || userRole === 'vendedor' || userRole === 'inspector') && (
+                <SidebarItem 
+                  icon={<Car size={20} />} 
+                  label={
+                    userRole === 'vendedor' ? 'Mis Autos en Venta' : 
+                    userRole === 'inspector' ? 'Vehículos a Inspeccionar' : 
+                    'Catálogo de Autos'
+                  } 
+                  active={currentScreen === 'inventory' || currentScreen === 'product-detail'} 
+                  onClick={() => navigateTo('inventory')}
+                  roleColor={roleColor}
+                />
               )}
-              
-              {(userRole === 'admin' || userRole === 'cajero') && (
+
+              {userRole === 'vendedor' && (
+                <SidebarItem 
+                  icon={<Plus size={20} />} 
+                  label="Publicar Auto" 
+                  active={currentScreen === 'add-product'} 
+                  onClick={() => navigateTo('add-product')}
+                  roleColor={roleColor}
+                />
+              )}
+
+              {(userRole === 'admin' || userRole === 'comprador') && (
                 <SidebarItem 
                   icon={<ShoppingCart size={20} />} 
-                  label="Punto de Venta" 
+                  label={userRole === 'comprador' ? 'Simular Compra / Escrow' : 'Punto de Venta (Escrow)'} 
                   active={currentScreen === 'pos'} 
                   onClick={() => navigateTo('pos')}
                   roleColor={roleColor}
@@ -297,7 +328,12 @@ const App: React.FC = () => {
 
               <SidebarItem 
                 icon={<History size={20} />} 
-                label={userRole === 'cliente' ? 'Mis Facturas' : 'Historial de Ventas'} 
+                label={
+                  userRole === 'comprador' ? 'Mis Compras' : 
+                  userRole === 'vendedor' ? 'Mis Ventas Realizadas' : 
+                  userRole === 'inspector' ? 'Historial de Visitas' : 
+                  'Historial de Ventas'
+                } 
                 active={currentScreen === 'sales-history'} 
                 onClick={() => navigateTo('sales-history')}
                 roleColor={roleColor}
@@ -442,7 +478,12 @@ const App: React.FC = () => {
                 </div>
                 <button 
                   onClick={() => navigateTo('profile')}
-                  className={`w-10 h-10 rounded-full ${userRole === 'admin' ? 'bg-primary/20 border-primary/30 text-primary' : userRole === 'cajero' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-500' : 'bg-violet-500/20 border-violet-500/30 text-violet-500'} border flex items-center justify-center font-bold hover:scale-110 transition-all overflow-hidden`}
+                  className={`w-10 h-10 rounded-full ${
+                    userRole === 'admin' ? 'bg-primary/20 border-primary/30 text-primary' : 
+                    userRole === 'vendedor' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-500' : 
+                    userRole === 'comprador' ? 'bg-blue-500/20 border-blue-500/30 text-blue-500' : 
+                    'bg-violet-500/20 border-violet-500/30 text-violet-500'
+                  } border flex items-center justify-center font-bold hover:scale-110 transition-all overflow-hidden`}
                 >
                   {currentUser.avatar ? (
                     <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -484,9 +525,23 @@ interface SidebarItemProps {
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, active, onClick, roleColor = 'primary', badge }) => {
-  const activeBg = roleColor === 'primary' ? 'bg-primary' : roleColor === 'emerald-500' ? 'bg-emerald-500' : 'bg-violet-500';
-  const hoverBg = roleColor === 'primary' ? 'hover:bg-primary/10' : roleColor === 'emerald-500' ? 'hover:bg-emerald-500/10' : 'hover:bg-violet-500/10';
-  const hoverText = roleColor === 'primary' ? 'hover:text-primary' : roleColor === 'emerald-500' ? 'hover:text-emerald-500' : 'hover:text-violet-500';
+  const activeBg = 
+    roleColor === 'primary' ? 'bg-primary' : 
+    roleColor === 'emerald-500' ? 'bg-emerald-500' : 
+    roleColor === 'blue-500' ? 'bg-blue-500' : 
+    'bg-violet-500';
+
+  const hoverBg = 
+    roleColor === 'primary' ? 'hover:bg-primary/10' : 
+    roleColor === 'emerald-500' ? 'hover:bg-emerald-500/10' : 
+    roleColor === 'blue-500' ? 'hover:bg-blue-500/10' : 
+    'hover:bg-violet-500/10';
+
+  const hoverText = 
+    roleColor === 'primary' ? 'hover:text-primary' : 
+    roleColor === 'emerald-500' ? 'hover:text-emerald-500' : 
+    roleColor === 'blue-500' ? 'hover:text-blue-500' : 
+    'hover:text-violet-500';
 
   return (
     <button

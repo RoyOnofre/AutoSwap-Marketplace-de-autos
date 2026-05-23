@@ -7,7 +7,7 @@ echo.
 
 :: 1. Iniciar el Backend (Python) en una nueva ventana
 echo [1/3] Iniciando Servidor Python (Backend)...
-start cmd /k "python backend/main.py"
+start cmd /k "python -m backend.main"
 
 :: 2. Esperar un momento para que el backend cargue
 timeout /t 5 /nobreak > nul

@@ -6,3 +6,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 fpdf2
 psycopg2-binary
+bcrypt==4.0.1

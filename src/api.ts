@@ -1,17 +1,49 @@
-const API_URL = "http://localhost:8004/api";
+const env = (import.meta as any).env as Record<string, string | undefined>;
+const API_URL = env.VITE_API_URL || "http://localhost:8004/api";
+const GATEWAY_URL = env.VITE_GATEWAY_URL || "http://localhost:3001/v1";
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token') || '';
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  };
+};
 
 export const api = {
   // ─────────────────────────────────────────
-  // AUTENTICACIÓN
+  // AUTENTICACIÓN VIA GATEWAY
   // ─────────────────────────────────────────
   login: async (correo: string, contrasena: string) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ correo, contrasena })
-    });
-    if (!res.ok) throw new Error((await res.json()).detail);
-    return res.json();
+    try {
+      const res = await fetch(`${GATEWAY_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correo, contrasena })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        if (res.status === 404) {
+          throw new Error('El gateway de autenticación no está disponible en ' + GATEWAY_URL + '. Inicia el servicio del gateway.');
+        }
+        if (err && (err.detail || err.message)) {
+          throw new Error(err.detail || err.message);
+        }
+        throw new Error(`Error de autenticación (${res.status}).`);
+      }
+
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      return data;
+    } catch (error: any) {
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error('No se pudo conectar con el gateway de autenticación. Verifica que esté iniciado en el puerto 3001.');
+      }
+      throw error;
+    }
   },
 
   registrar: async (nombre: string, correo: string, contrasena: string, rol: string) => {
@@ -53,6 +85,7 @@ export const api = {
     correo?: string;
     rol?: string;
     estado?: string;
+    kyc_estado?: string;
     nueva_contrasena?: string;
   }) => {
     const res = await fetch(`${API_URL}/usuarios/${id}`, {
@@ -118,7 +151,7 @@ export const api = {
   },
 
   // ─────────────────────────────────────────
-  // VENTAS
+  // VENTAS / COMPRAS
   // ─────────────────────────────────────────
   crearVenta: async (venta: any) => {
     const res = await fetch(`${API_URL}/ventas`, {
@@ -130,11 +163,143 @@ export const api = {
     return res.json();
   },
 
+  registrarVenta: async (venta: any) => {
+    return api.crearVenta(venta);
+  },
+
   descargarReporte: () => {
     window.open(`${API_URL}/reportes/ventas/pdf`, "_blank");
   },
 
   descargarReporteUsuarios: () => {
     window.open(`${API_URL}/reportes/usuarios/pdf`, "_blank");
+  },
+
+  // ─────────────────────────────────────────
+  // AUTO-SWAP GATEWAY (NestJS MODULES)
+  // ─────────────────────────────────────────
+  submitKyc: async (userId: string, ciFrontBase64: string, ciBackBase64: string, selfieBase64: string) => {
+    const res = await fetch(`${GATEWAY_URL}/kyc/submit`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ userId, ciFrontBase64, ciBackBase64, selfieBase64 })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al enviar KYC" }));
+      throw new Error(err.message || "Error al enviar KYC");
+    }
+    return res.json();
+  },
+
+  crearTransaccion: async (listingId: string, amount: number, notes?: string) => {
+    const res = await fetch(`${GATEWAY_URL}/transactions`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ listingId, amount, notes })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al crear transacción" }));
+      throw new Error(err.message || "Error al crear transacción");
+    }
+    return res.json();
+  },
+
+  pagarTransaccion: async (id: string, paymentMethod: string) => {
+    const res = await fetch(`${GATEWAY_URL}/transactions/${id}/pay`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ paymentMethod })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al iniciar pago" }));
+      throw new Error(err.message || "Error al iniciar pago");
+    }
+    return res.json();
+  },
+
+  getTransaccion: async (id: string) => {
+    const res = await fetch(`${GATEWAY_URL}/transactions/${id}`, {
+      method: "GET",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al obtener transacción" }));
+      throw new Error(err.message || "Error al obtener transacción");
+    }
+    return res.json();
+  },
+
+  simularWebhookPago: async (transactionId: string, amount: number, buyerId: string, sellerId: string) => {
+    const res = await fetch(`${GATEWAY_URL}/payments/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transaction_id: transactionId, status: 'paid', amount, buyer_id: buyerId, seller_id: sellerId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al simular webhook" }));
+      throw new Error(err.message || "Error al simular webhook");
+    }
+    return res.json();
+  },
+
+  getEscrow: async (id: string) => {
+    const res = await fetch(`${GATEWAY_URL}/escrow/${id}`, {
+      method: "GET",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al obtener escrow" }));
+      throw new Error(err.message || "Error al obtener escrow");
+    }
+    return res.json();
+  },
+
+  liberarEscrow: async (id: string) => {
+    const res = await fetch(`${GATEWAY_URL}/escrow/${id}/release`, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al liberar fondos" }));
+      throw new Error(err.message || "Error al liberar fondos");
+    }
+    return res.json();
+  },
+
+  reembolsarEscrow: async (id: string) => {
+    const res = await fetch(`${GATEWAY_URL}/escrow/${id}/refund`, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al reembolsar" }));
+      throw new Error(err.message || "Error al reembolsar");
+    }
+    return res.json();
+  },
+
+  verificarInspeccion: async (vehicleId: string, price: number) => {
+    const res = await fetch(`${GATEWAY_URL}/inspections/verify/${vehicleId}/${price}`, {
+      method: "GET",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al verificar inspección" }));
+      throw new Error(err.message || "Error al verificar inspección");
+    }
+    return res.json();
+  },
+
+  registrarInspeccion: async (vehicleId: string, status: 'approved' | 'rejected' | 'pending', details?: any, notes?: string) => {
+    const res = await fetch(`${GATEWAY_URL}/inspections`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ vehicle_id: vehicleId, status, details, notes })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Error al registrar inspección" }));
+      throw new Error(err.message || "Error al registrar inspección");
+    }
+    return res.json();
   }
 };

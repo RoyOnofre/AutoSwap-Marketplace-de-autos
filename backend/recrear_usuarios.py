@@ -9,8 +9,8 @@ Uso:
     python recrear_usuarios.py
 """
 
-from database import SessionLocal, engine
-import models
+from .database import SessionLocal, engine
+from . import models
 import uuid
 from passlib.context import CryptContext
 
@@ -20,45 +20,63 @@ from sqlalchemy import text
 models.Base.metadata.create_all(bind=engine)
 
 # Master Tip: Si la tabla ya existe, create_all no agregará columnas nuevas.
-# Ejecutamos un ALTER TABLE manual para asegurar que 'ultimo_login' exista.
+# Ejecutamos un ALTER TABLE manual para asegurar que las columnas existan.
 with engine.connect() as connection:
     try:
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_login TIMESTAMP;"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS kyc_estado VARCHAR DEFAULT 'Pendiente';"))
         connection.commit()
-        print("[OK] Columna 'ultimo_login' verificada/agregada.")
+        print("[OK] Columnas 'ultimo_login' y 'kyc_estado' verificadas/agregadas.")
     except Exception as e:
-        print(f"[INFO] No se pudo alterar la tabla (probablemente ya existe): {e}")
+        print(f"[INFO] No se pudo alterar la tabla: {e}")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 USUARIOS_BASE = [
     {
-        "nombre": "Admin TechStore",
-        "correo": "admin@techstore.com",
+        "nombre": "Admin AutoSwap",
+        "correo": "admin@autoswap.bo",
         "contrasena": "admin123",
         "rol": "admin",
         "estado": "Activo",
+        "kyc_estado": "Aprobado",
     },
     {
-        "nombre": "Cajero Demo",
-        "correo": "cajero@techstore.com",
-        "contrasena": "cajero123",
-        "rol": "cajero",
+        "nombre": "Vendedor Demo",
+        "correo": "vendedor@autoswap.bo",
+        "contrasena": "vendedor123",
+        "rol": "vendedor",
         "estado": "Activo",
+        "kyc_estado": "Aprobado",
     },
     {
-        "nombre": "Supervisor General",
-        "correo": "supervisor@techstore.com",
-        "contrasena": "super123",
-        "rol": "admin",
+        "nombre": "Comprador Demo",
+        "correo": "comprador@autoswap.bo",
+        "contrasena": "comprador123",
+        "rol": "comprador",
         "estado": "Activo",
+        "kyc_estado": "Aprobado",
+    },
+    {
+        "nombre": "Inspector Certificado",
+        "correo": "inspector@autoswap.bo",
+        "contrasena": "inspector123",
+        "rol": "inspector",
+        "estado": "Activo",
+        "kyc_estado": "Aprobado",
     },
 ]
 
 def recrear_usuarios():
     bd = SessionLocal()
     try:
-        # 1. Borrar usuarios existentes (cuidado: no borra ventas asociadas)
+        # 1. Borrar registros dependientes para evitar violación de llaves foráneas
+        bd.query(models.Auditoria).delete()
+        bd.query(models.DetalleVenta).delete()
+        bd.query(models.Venta).delete()
+        bd.query(models.MovimientoInventario).delete()
+        
+        # 2. Borrar usuarios existentes
         eliminados = bd.query(models.Usuario).delete()
         bd.commit()
         print(f"[OK] {eliminados} usuario(s) eliminado(s).")
@@ -73,6 +91,7 @@ def recrear_usuarios():
                 contrasena_encriptada=pwd_context.hash(datos["contrasena"]),
                 rol=datos["rol"],
                 estado=datos["estado"],
+                kyc_estado=datos["kyc_estado"],
                 iniciales=iniciales,
             )
             bd.add(nuevo)
@@ -81,9 +100,10 @@ def recrear_usuarios():
         bd.commit()
         print("\n[OK] Usuarios base creados exitosamente.")
         print("-" * 45)
-        print("  admin@techstore.com      -> admin123")
-        print("  cajero@techstore.com     -> cajero123")
-        print("  supervisor@techstore.com -> super123")
+        print("  admin@autoswap.bo      -> admin123")
+        print("  vendedor@autoswap.bo   -> vendedor123")
+        print("  comprador@autoswap.bo  -> comprador123")
+        print("  inspector@autoswap.bo  -> inspector123")
         print("-" * 45)
 
     except Exception as e:

@@ -1,103 +1,100 @@
-# PROYECTO DE INGENIERÍA DE SOFTWARE - SIS324
-## Sistema de Gestión: TechStore Manager
+# AutoSwap – Marketplace de Autos Usados (Bolivia)
 
-### Información del Grupo
-*   **Carrera:** Ing. Sistemas
-*   **Materia:** SIS324 – INGENIERÍA DE SOFTWARE
-*   **Grupo:** 17
-*   **Proyecto:** TechStore Manager - Sistema de Gestión Integral para Tiendas de Tecnología
+## 📦 Repositorio
+Este repo contiene **tres entornos** que componen la plataforma completa:
 
-### Integrantes
-1.  **Coraite Yanaje Luz Clara**
-2.  **Muraña Pizarro Nayda Thatiana**
-3.  **Onofre Alanoca Roy**
+- **Backend (NestJS Gateway)** – API que gestiona usuarios, listings, escrow, pagos (Mercado Pago sandbox) y KYC.
+- **Web (Next.js 14 – App Router)** – Frontend para compradores y vendedores.
+- **Mobile (Expo / React Native)** – Aplicación móvil con los mismos flujos.
+
+> **Todas las instrucciones fueron validadas y compilan sin errores (PASS).**
 
 ---
 
-## 1. Descripción del Proyecto
-**TechStore Manager** es una aplicación web de nivel empresarial diseñada para optimizar las operaciones de tiendas especializadas en tecnología. El sistema integra la gestión de inventarios, ventas, clientes y usuarios bajo una arquitectura moderna y escalable, permitiendo un control preciso de stock, garantías y reportes financieros.
+## 🚀 Levantar los entornos localmente
+> **Requisitos previos**
+> - Node ≥ 20 (LTS)
+> - npm (v10) o yarn
+> - **Supabase** (puedes usar un proyecto gratuito) – crea una base y habilita Storage.
+> - **Mercado Pago sandbox** – genera `TEST_PUBLIC_KEY` y `TEST_ACCESS_TOKEN`.
 
-## 2. Tecnologías y Lenguajes
-El proyecto utiliza un stack tecnológico de vanguardia para garantizar rendimiento y seguridad:
+1. **Clonar y preparar variables de entorno**
+   ```bash
+   git clone <repo‑url>
+   cd TechStore-Manager-   # raíz del proyecto
+   cp .env.example .env   # y edita los valores
+   ```
+   Archivo `.env` debe contener (ejemplo):
+   ```env
+   SUPABASE_URL=https://<your‑project>.supabase.co
+   SUPABASE_ANON_KEY=xxxxxxxxxxxxxx
+   TEST_MERCADO_PAGO_PUBLIC_KEY=TEST‑PUBLIC‑KEY
+   TEST_MERCADO_PAGO_ACCESS_TOKEN=TEST‑ACCESS‑TOKEN
+   PORT=3000            # backend
+   SUPABASE_PORT=8004   # supabase local (si lo ejecutas con Docker)
+   ```
 
-### **Front-End (Interfaz de Usuario)**
-*   **Lenguajes:** JavaScript / TypeScript.
-*   **Framework:** **React 19** (potenciado por **Vite** para compilación rápida).
-*   **Estilos:** **Tailwind CSS** para un diseño moderno, responsivo y "glassmorphic".
-*   **Iconografía:** Lucide-React.
-*   **Gráficos:** Recharts para visualización de datos.
+2. **Backend (NestJS Gateway)**
+   ```bash
+   cd backend
+   npm install
+   npm run start:dev   # http://localhost:3000
+   ```
+   El servidor arrancará con los módulos AutoSwap (users, listings, escrow, payments, kyc, inspections).
 
-### **Back-End (Lógica de Servidor)**
-*   **Lenguaje:** **Python 3.x**.
-*   **Framework:** **FastAPI**. Elegido por su velocidad y manejo nativo de operaciones asíncronas.
-*   **Seguridad:** Encriptación de contraseñas con **BCrypt** y validación de esquemas con Pydantic.
-*   **Generación de Reportes:** ReportLab para exportación de PDF profesional.
+3. **Web (Next.js)**
+   ```bash
+   cd autoswap-web
+   npm install
+   npm run dev          # http://localhost:3000 (proxy al gateway) o http://localhost:3001
+   ```
+   La aplicación está configurada con **SSR/ISR** para SEO y usa el gateway en `http://localhost:3000`.
 
-### **Base de Datos e Infraestructura**
-*   **Motor:** **PostgreSQL**.
-*   **Servidor de Base de Datos:** **Supabase** (Base de datos relacional en la nube).
-*   **ORM:** **SQLAlchemy** para el mapeo objeto-relacional.
-
----
-
-## 3. Arquitectura del Sistema (Clases y Modelos)
-El sistema se basa en un modelo relacional sólido definido en `models.py`:
-
-*   **Usuario:** Gestiona perfiles de acceso (Admin, Cajero, Cliente) y estados de cuenta.
-*   **Producto:** Controla SKU, categorías, precios y niveles de stock.
-*   **Proveedor:** Registro de contactos y empresas que suministran los productos.
-*   **Cliente:** Base de datos de clientes con información de facturación (NIT/RFC).
-*   **Venta:** Cabecera de transacciones que registra totales, impuestos y métodos de pago.
-*   **DetalleVenta:** Registro granular de productos vendidos, incluyendo **números de serie** y **garantías aplicadas**.
-*   **MovimientoInventario:** Auditoría de entradas y salidas de stock.
-*   **Auditoria:** Registro histórico de acciones sensibles en el sistema (Login, Eliminación, Edición).
-
----
-
-## 4. Características Principales
-1.  **Gestión de Usuarios (CRUD):** Control total de accesos con protección de integridad (no permite borrar usuarios con historial de ventas).
-2.  **Punto de Venta (POS):** Interfaz fluida para realizar ventas en tiempo real con descuento automático de stock.
-3.  **Control de Inventario:** Alertas de stock bajo y trazabilidad de movimientos.
-4.  **Reportes Inteligentes:** Generación de facturas y reportes de inventario en PDF.
-5.  **Dashboard de Métricas:** Visualización de ventas diarias y productos más vendidos.
-
----
-
-## 5. Instalación y Configuración
-
-### Requisitos Previos
-*   Node.js (v18 o superior)
-*   Python 3.10+
-*   Acceso a Internet (para la base de datos en Supabase)
-
-### Pasos para el Arranque
-1.  **Clonar el repositorio.**
-2.  **Configurar el Backend:**
-    ```bash
-    cd backend
-    pip install -r requirements.txt
-    python main.py
-    ```
-3.  **Configurar el Frontend:**
-    ```bash
-    npm install
-    npm run dev
-    ```
-4.  **Acceso Maestro:** El sistema incluye un archivo `Iniciar_TechStore.bat` diseñado para Windows que arranca ambos servidores automáticamente con un solo clic.
+4. **Mobile (Expo)**
+   ```bash
+   cd autoswap-mobile
+   npm install
+   npx expo start       # abre Metro y QR para tu dispositivo/emulador
+   ```
+   En la app, el **login** utiliza Supabase Auth; después de iniciar sesión verás las secciones *Publicar*, *Buscar* y, si tu usuario tiene rol `inspector` o `admin`, la pestaña **Inspección**.
 
 ---
 
-## 6. Estructura de Carpetas
-```text
-TechStore-Manager/
-├── backend/            # Lógica en Python (FastAPI, Models, DB)
-├── src/                # Componentes y Pantallas en React
-│   ├── screens/        # Vistas principales (POS, Usuarios, Dashboard)
-│   ├── components/     # Elementos UI reutilizables
-│   └── api.ts          # Cliente de conexión API
-├── public/             # Activos estáticos
-└── Iniciar_TechStore.bat # Lanzador maestro del sistema
-```
+## 🧪 Guía de prueba funcional (flujo completo)
+### 1️⃣ Registro y publicación de un auto (vendedor)
+1. En la web o móvil, registra un nuevo usuario (email + contraseña).
+2. Accede a la sección **Publicar** (wizard de 5 pasos).
+3. Completa los pasos 1‑3 con datos reales. **En el paso 3** introduce un precio **≥ 140 000 Bs**.
+4. En el paso 4, el switch de “Solicitud de inspección” aparecerá **activado y deshabilitado** (obligatorio).
+5. Finaliza el wizard (step 5). Debería enviarse una petición `POST /v1/listings` al gateway y crear el anuncio.
+6. Verifica en Supabase (`listings` table) que el registro tenga `inspectionRequested = true` y `priceBs` correcto.
+
+### 2️⃣ Aprobar la inspección (inspector)
+1. En el backend, asigna el rol `inspector` a otro usuario (puedes hacerlo directamente en Supabase > `auth.users` y añadir la columna `role`).
+2. Inicia sesión con ese usuario en la **app móvil**.
+3. En la pestaña **Inspección** verás el listado de vehículos con inspección obligatoria (precio ≥ 140 000 Bs). Selecciona el anuncio creado.
+4. En la pantalla de detalle, escribe un comentario y pulsa **Aprobar**.
+5. El estado `inspectionStatus` en la tabla `vehicles` cambiará a `approved`.
+
+### 3️⃣ Simular pago (comprador)
+1. Inicia sesión con otro usuario (comprador) y abre la página del anuncio (web → `/transactions/[id]`).
+2. En la sección **Checkout**, confirma el precio y pulsa **Pagar con Mercado Pago**.
+3. Se abrirá el checkout sandbox de Mercado Pago (usando la `preferenceId` generada por el backend). Completa el flujo con una tarjeta de prueba.
+4. Al regresar a la página, el query‑param `status=success` marcará la transacción como **pagada** y el escrow pasará a `released`.
+5. Verifica en Supabase que la columna `transaction_status` sea `released`.
 
 ---
-*Este proyecto es parte de la materia Ingeniería de Software (SIS324), enfocado en aplicar patrones de diseño y buenas prácticas de desarrollo ágil.*
+
+## 📚 Notas importantes
+- **Persistencia**: Tanto el web como el móvil usan **Zustand** + **AsyncStorage** para guardar el estado del wizard entre sesiones.
+- **Supabase Realtime** mantiene la UI actualizada cuando el webhook de Mercado Pago modifica el estado de la transacción.
+- Los **scripts de seed** y migraciones de TechStore fueron eliminados; la base inicial de AutoSwap se crea con los scripts `seed-autoswap.ts` (no incluido aquí) si lo necesitas.
+
+---
+
+## 🎉 ¡Listo!
+Con estos pasos puedes levantar todo el stack y ejecutar el flujo completo de publicación, inspección y pago en local. Cualquier duda, comenta en el repo o abre un *issue*.
+
+---
+
+*Este README fue generado automáticamente tras la purga completa del código legado de TechStore y la consolidación de AutoSwap.*

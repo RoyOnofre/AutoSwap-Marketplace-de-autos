@@ -4,14 +4,13 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional
-import models
-from database import SessionLocal, engine
-from pydantic import BaseModel
 import uuid
 import datetime
-
 from passlib.context import CryptContext
-from reports import generar_pdf_ventas, generar_pdf_usuarios
+from pydantic import BaseModel
+from . import models
+from .database import SessionLocal, engine
+from .routers import anuncios, ofertas, inspecciones
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -22,6 +21,16 @@ def obtener_hash_contrasena(password):
     return pwd_context.hash(password)
 
 models.Base.metadata.create_all(bind=engine)
+
+# Asegurar migración para kyc_estado
+with engine.connect() as connection:
+    try:
+        from sqlalchemy import text
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS kyc_estado VARCHAR DEFAULT 'Pendiente';"))
+        connection.commit()
+        print("[OK] Columna 'kyc_estado' verificada/agregada.")
+    except Exception as e:
+        print(f"[INFO] No se pudo alterar la tabla usuarios: {e}")
 
 # Helper para Auditoria
 def registrar_auditoria(bd: Session, usuario_id: str, accion: str, descripcion: str):
@@ -39,6 +48,9 @@ def registrar_auditoria(bd: Session, usuario_id: str, accion: str, descripcion: 
         bd.rollback()
 
 app = FastAPI(title="TechStore Manager API Master - Español")
+app.include_router(anuncios.router)
+app.include_router(ofertas.router)
+app.include_router(inspecciones.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,6 +85,7 @@ class ActualizarUsuario(BaseModel):
     correo: Optional[str] = None
     rol: Optional[str] = None
     estado: Optional[str] = None
+    kyc_estado: Optional[str] = None
     nueva_contrasena: Optional[str] = None
 
 class ResetContrasena(BaseModel):
@@ -134,6 +147,7 @@ def serializar_usuario(u: models.Usuario) -> dict:
         "correo": u.correo,
         "rol": u.rol,
         "estado": u.estado,
+        "kyc_estado": u.kyc_estado if hasattr(u, 'kyc_estado') else "Pendiente",
         "iniciales": u.iniciales,
         "avatar": u.avatar,
         "ultimo_login": ultimo,
@@ -144,9 +158,9 @@ def serializar_usuario(u: models.Usuario) -> dict:
 # ─────────────────────────────────────────────
 @app.post("/api/auth/registro")
 def registrar_usuario(usuario: CrearUsuario, bd: Session = Depends(obtener_bd)):
+    # Verificar si el correo ya está registrado
     if bd.query(models.Usuario).filter(models.Usuario.correo == usuario.correo).first():
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
-    
     nuevo_usuario = models.Usuario(
         id=str(uuid.uuid4()),
         nombre=usuario.nombre,
@@ -159,19 +173,24 @@ def registrar_usuario(usuario: CrearUsuario, bd: Session = Depends(obtener_bd)):
     bd.add(nuevo_usuario)
     bd.commit()
     bd.refresh(nuevo_usuario)
-    
-    # Audit log
+    # Auditoría
     registrar_auditoria(bd, nuevo_usuario.id, "CREAR", f"Usuario {nuevo_usuario.nombre} registrado.")
-    
     return {"mensaje": "Usuario registrado exitosamente", "id": nuevo_usuario.id}
+
 
 @app.post("/api/auth/login")
 def login(peticion: PeticionLogin, bd: Session = Depends(obtener_bd)):
     usuario = bd.query(models.Usuario).filter(models.Usuario.correo == peticion.correo).first()
-    if not usuario or not verificar_contrasena(peticion.contrasena, usuario.contrasena_encriptada):
+    if not usuario:
+        print(f"[AUTH FAIL] Usuario no encontrado: {peticion.correo}")
+        raise HTTPException(status_code=400, detail="Credenciales incorrectas")
+
+    if not verificar_contrasena(peticion.contrasena, usuario.contrasena_encriptada):
+        print(f"[AUTH FAIL] Contraseña incorrecta para: {peticion.correo}")
         raise HTTPException(status_code=400, detail="Credenciales incorrectas")
     
     if usuario.estado == "Inactivo":
+        print(f"[AUTH FAIL] Usuario inactivo: {peticion.correo}")
         raise HTTPException(status_code=403, detail="Tu cuenta está desactivada. Contacta al administrador.")
     
     # Actualizar último login
@@ -180,6 +199,7 @@ def login(peticion: PeticionLogin, bd: Session = Depends(obtener_bd)):
     
     # Audit log
     registrar_auditoria(bd, usuario.id, "LOGIN", "Inicio de sesión exitoso.")
+    print(f"[AUTH SUCCESS] Usuario autenticado: {usuario.correo}")
     
     return {
         "mensaje": "Login exitoso",
@@ -252,6 +272,8 @@ def actualizar_usuario(usuario_id: str, datos: ActualizarUsuario, bd: Session = 
         usuario.rol = datos.rol
     if datos.estado is not None:
         usuario.estado = datos.estado
+    if datos.kyc_estado is not None:
+        usuario.kyc_estado = datos.kyc_estado
     if datos.nueva_contrasena is not None:
         if len(datos.nueva_contrasena) < 6:
             raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")

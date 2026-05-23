@@ -17,7 +17,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBack }) => {
     nombre: '',
     apellido: '',
     correo: '',
-    rol: 'admin',
+    rol: 'comprador',
     contrasena: '',
     confirmar: ''
   });
@@ -98,7 +98,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBack }) => {
 
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-white">Crear Nueva Cuenta</h1>
-          <p className="text-slate-400 mt-2">Se guardará directamente en la base de datos</p>
+          <p className="text-slate-400 mt-2">Se registrará en la plataforma AutoSwap</p>
 
           <div className="flex items-center justify-center gap-4 mt-8">
             {[1, 2, 3].map((s) => (
@@ -155,22 +155,22 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBack }) => {
           {step === 2 && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
               <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-300">Tipo de Rol en el Sistema</label>
+                <label className="text-sm font-medium text-slate-300">Tipo de Rol en AutoSwap</label>
                 <div className="grid grid-cols-2 gap-4">
-                  <button type="button" onClick={() => setFormData(p => ({ ...p, rol: 'admin' }))}
-                    className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${formData.rol === 'admin' ? 'border-primary bg-primary/10 text-primary' : 'border-primary/10 bg-background-dark/50 text-slate-400 hover:border-primary/30'}`}>
-                    <ShieldCheck size={32} />
-                    <span className="font-bold uppercase text-sm">Administrador</span>
-                    <span className="text-[10px] text-center opacity-70">Acceso total al sistema</span>
-                  </button>
-                  <button type="button" onClick={() => setFormData(p => ({ ...p, rol: 'cajero' }))}
-                    className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${formData.rol === 'cajero' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-primary/10 bg-background-dark/50 text-slate-400 hover:border-emerald-500/30'}`}>
+                  <button type="button" onClick={() => setFormData(p => ({ ...p, rol: 'comprador' }))}
+                    className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${formData.rol === 'comprador' ? 'border-primary bg-primary/10 text-primary' : 'border-primary/10 bg-background-dark/50 text-slate-400 hover:border-primary/30'}`}>
                     <UserCheck size={32} />
-                    <span className="font-bold uppercase text-sm">Cajero</span>
-                    <span className="text-[10px] text-center opacity-70">Ventas e inventario</span>
+                    <span className="font-bold uppercase text-sm">Comprador</span>
+                    <span className="text-[10px] text-center opacity-70">Buscar y comprar autos</span>
+                  </button>
+                  <button type="button" onClick={() => setFormData(p => ({ ...p, rol: 'vendedor' }))}
+                    className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${formData.rol === 'vendedor' ? 'border-primary bg-primary/10 text-primary' : 'border-primary/10 bg-background-dark/50 text-slate-400 hover:border-primary/30'}`}>
+                    <User size={32} />
+                    <span className="font-bold uppercase text-sm">Vendedor</span>
+                    <span className="text-[10px] text-center opacity-70">Publicar y vender autos</span>
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 text-center mt-2">Rol seleccionado: <span className="text-primary font-bold">{formData.rol.charAt(0).toUpperCase() + formData.rol.slice(1)}</span></p>
+                <p className="text-xs text-slate-500 text-center mt-2">Rol seleccionado: <span className="text-primary font-bold">{formData.rol === 'comprador' ? 'Comprador' : 'Vendedor'}</span></p>
               </div>
             </motion.div>
           )}
