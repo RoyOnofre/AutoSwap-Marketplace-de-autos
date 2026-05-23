@@ -1,4 +1,19 @@
-<<<<<<< HEAD
+Entrega del Sprint 2 – Gestión de Productos/Servicios
+----------
+Universitario (a):
+
+<p>1.-Coraite Yanaje Luz Clara<p>
+
+<p>2.-Muraña Pizarro Nayda Thatiana<p>
+
+<p>3.-Onofre  Alanoca Roy<p>
+
+Carrera: Ing. Sistemas. 
+Materia: SIS324 – INGINIERIA DE SOFWARE
+<p>Grupo: 17<p>
+<p>Fecha: 22/05/2026<p>
+
+   <<<<<<< HEAD
 # AutoSwap – Marketplace de Autos Usados (Bolivia)
 
 ## 📦 Repositorio
