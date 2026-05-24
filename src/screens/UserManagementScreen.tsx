@@ -438,7 +438,7 @@ const UserManagementScreen: React.FC = () => {
                         </select>
                       </Field>
                       <Field label="Estado">
-                        <select value={form.estado} onChange={e => setForm(p=>({ ...p, estado: e.target.value }))} className="input-field">
+                        <select value={form.estado} onChange={e => setForm(p=>({...p, estado: e.target.value}))} className="input-field">
                           <option value="Activo">Activo</option>
                           <option value="Inactivo">Inactivo</option>
                         </select>
@@ -446,8 +446,13 @@ const UserManagementScreen: React.FC = () => {
                       <Field label="Estado KYC">
                         <select
                           value={form.kyc_estado}
-                          onChange={e => setForm(p => ({ ...p, kyc_estado: e.target.value }))}
+                          onChange={e => setForm(p=>({...p, kyc_estado: e.target.value}))}
                           className="input-field"
+                        >
+                          <option value="Pendiente">Pendiente</option>
+                          <option value="Aprobado">Aprobado</option>
+                          <option value="Rechazado">Rechazado</option>
+                        </select>
                         >
                           <option value="Pendiente">Pendiente</option>
                           <option value="Aprobado">Aprobado</option>
