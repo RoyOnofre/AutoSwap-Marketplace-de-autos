@@ -7,7 +7,7 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, '.', '');
 const isBuild = command === 'build';
   return {
-   base: isBuild ? '/TechStore-Manager/' : '/',   // ← condicional
+   base: '/',   // ← condicional
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
