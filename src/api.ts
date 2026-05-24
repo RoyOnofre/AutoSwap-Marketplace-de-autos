@@ -137,13 +137,13 @@ export const api = {
   // PRODUCTOS
   // ─────────────────────────────────────────
   getProductos: async () => {
-    const res = await fetch(`${API_URL}/productos`);
+    const res = await fetch(`${GATEWAY_URL}/listings`);
     if (!res.ok) throw new Error("Error obteniendo productos");
     return res.json();
   },
 
   crearProducto: async (producto: any) => {
-    const res = await fetch(`${API_URL}/productos`, {
+    const res = await fetch(`${GATEWAY_URL}/listings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(producto)

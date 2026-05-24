@@ -42,7 +42,7 @@ const AddProductScreen: React.FC<AddProductScreenProps> = ({ onBack }) => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      Array.from(files).forEach(file => {
+      Array.from(files).forEach((file: File) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           if (reader.result) {

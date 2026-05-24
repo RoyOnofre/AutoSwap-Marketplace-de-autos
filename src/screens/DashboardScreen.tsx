@@ -25,7 +25,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userRole, onNavigate 
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Panel de <span className="text-primary">Control</span></h1>
+          <h1 className="text-3xl font-black text-white tracking-tight">AutoSwap Bolivia - Marketplace de autos usados en Bolivia</h1>
           <p className="text-slate-400">Resumen ejecutivo del sistema TechStore Pro</p>
         </div>
         <div className="flex items-center gap-3">
@@ -39,31 +39,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userRole, onNavigate 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <DashboardStatCard 
-          icon={<TrendingUp size={24} />} 
-          label="Ventas del Día" 
-          value="$12,450.00" 
-          trend="+12.5%" 
+          icon={<TrendingUp size={24} />}
+          label="VENTAS DEL DÍA (AUTOS)"
+          value="Bs. 12,450"
+          trend="+12.5%"
           color="text-emerald-400"
         />
         <DashboardStatCard 
-          icon={<Package size={24} />} 
-          label="Productos" 
-          value="1,284" 
-          trend="+4" 
+          icon={<Package size={24} />}
+          label="AUTOS LISTADOS"
+          value="1,284"
+          trend="+4"
           color="text-blue-400"
         />
         <DashboardStatCard 
-          icon={<Users size={24} />} 
-          label="Clientes Nuevos" 
-          value="48" 
-          trend="+18%" 
+          icon={<Users size={24} />}
+          label="USUARIOS REGISTRADOS"
+          value="48"
+          trend="+18%"
           color="text-violet-400"
         />
         <DashboardStatCard 
-          icon={<Zap size={24} />} 
-          label="Rendimiento" 
-          value="98.2%" 
-          trend="+0.5%" 
+          icon={<Zap size={24} />}
+          label="INSPECCIONES COMPLETADAS"
+          value="98.2%"
+          trend="+0.5%"
           color="text-amber-400"
         />
       </div>

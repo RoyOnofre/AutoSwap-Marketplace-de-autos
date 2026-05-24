@@ -99,7 +99,7 @@ export const MOCK_USERS: User[] = [
     id: '2',
     name: 'Sofia Castro',
     email: 'sofia.c@techstore.com',
-    role: 'cajero',
+    role: 'vendedor',
     status: 'Activo',
     lastLogin: 'Hace 2 horas',
     initials: 'SC',
@@ -118,7 +118,7 @@ export const MOCK_USERS: User[] = [
     id: '4',
     name: 'Elena Ruiz',
     email: 'eruiz@techstore.com',
-    role: 'cliente',
+    role: 'comprador',
     status: 'Pendiente',
     lastLogin: 'Nunca',
     initials: 'ER'

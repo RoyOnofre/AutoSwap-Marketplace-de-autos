@@ -292,6 +292,16 @@ const App: React.FC = () => {
                 />
               )}
 
+              {(userRole === 'admin' || userRole === 'vendedor') && (
+                <SidebarItem
+                  icon={<Package size={20} />}
+                  label="Gestión de Productos"
+                  active={currentScreen === 'add-product'}
+                  onClick={() => navigateTo('add-product')}
+                  roleColor={roleColor}
+                />
+              )}
+
               {(userRole === 'admin' || userRole === 'comprador' || userRole === 'vendedor' || userRole === 'inspector') && (
                 <SidebarItem 
                   icon={<Car size={20} />} 

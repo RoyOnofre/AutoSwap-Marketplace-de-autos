@@ -453,11 +453,6 @@ const UserManagementScreen: React.FC = () => {
                           <option value="Aprobado">Aprobado</option>
                           <option value="Rechazado">Rechazado</option>
                         </select>
-                        >
-                          <option value="Pendiente">Pendiente</option>
-                          <option value="Aprobado">Aprobado</option>
-                          <option value="Rechazado">Rechazado</option>
-                        </select>
                       </Field>
                     </div>
                     <div className="border-t border-primary/10 pt-4">

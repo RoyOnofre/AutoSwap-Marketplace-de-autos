@@ -10,6 +10,8 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { AppService } from './app.service';
     InspectionModule,
     TransactionsModule,
     AuthModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register({ secret: 'test', signOptions: { expiresIn: '1h' } }),
   ],
   controllers: [AppController],
   providers: [AppService,
