@@ -8,7 +8,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 
 @ApiTags('Inspections')
 @ApiBearerAuth()
-@Controller('v1/inspections')
+@Controller('inspections')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InspectionController {
   constructor(private readonly inspectionService: InspectionService) {}

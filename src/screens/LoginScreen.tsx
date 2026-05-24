@@ -178,11 +178,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister }) => {
           </div>
         </div>
 
-        {error && typeof error === 'string' && error !== '' && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm text-center">
-            {error === '[object Object]' ? 'Error de conexión con el Gateway/Backend' : error}
-          </div>
-        )}
+        {error && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm text-center">
+          {error}
+        </div>
+      )}
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">

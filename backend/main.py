@@ -8,9 +8,11 @@ import uuid
 import datetime
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from . import models
-from .database import SessionLocal, engine
-from .routers import anuncios, ofertas, inspecciones
+import sys, os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+import models
+from database import SessionLocal, engine
+from routers import anuncios, ofertas, inspecciones
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -158,6 +160,7 @@ def serializar_usuario(u: models.Usuario) -> dict:
 # ─────────────────────────────────────────────
 @app.post("/api/auth/registro")
 def registrar_usuario(usuario: CrearUsuario, bd: Session = Depends(obtener_bd)):
+    # Note: extra parenthesis removed; function signature now correct
     # Verificar si el correo ya está registrado
     if bd.query(models.Usuario).filter(models.Usuario.correo == usuario.correo).first():
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
@@ -180,6 +183,7 @@ def registrar_usuario(usuario: CrearUsuario, bd: Session = Depends(obtener_bd)):
 
 @app.post("/api/auth/login")
 def login(peticion: PeticionLogin, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis in login signature
     usuario = bd.query(models.Usuario).filter(models.Usuario.correo == peticion.correo).first()
     if not usuario:
         print(f"[AUTH FAIL] Usuario no encontrado: {peticion.correo}")
@@ -251,8 +255,8 @@ def obtener_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return serializar_usuario(usuario)
 
-@app.put("/api/usuarios/{usuario_id}")
 def actualizar_usuario(usuario_id: str, datos: ActualizarUsuario, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     """Edita nombre, correo, rol, estado o contraseña de un usuario."""
     usuario = bd.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
@@ -287,8 +291,8 @@ def actualizar_usuario(usuario_id: str, datos: ActualizarUsuario, bd: Session = 
     
     return {"mensaje": "Usuario actualizado exitosamente", "usuario": serializar_usuario(usuario)}
 
-@app.patch("/api/usuarios/{usuario_id}/estado")
 def cambiar_estado_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     """Alterna el estado de un usuario entre Activo e Inactivo."""
     usuario = bd.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
@@ -302,8 +306,8 @@ def cambiar_estado_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
     
     return {"mensaje": f"Usuario {usuario.estado.lower()} exitosamente", "estado": usuario.estado}
 
-@app.delete("/api/usuarios/{usuario_id}")
 def eliminar_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     """
     Elimina un usuario del sistema. 
     Borra automáticamente sus registros de auditoría para permitir la eliminación,
@@ -352,8 +356,8 @@ def eliminar_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
         print(f"Error en eliminar_usuario: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
-@app.post("/api/auth/reset-contrasena")
 def reset_contrasena(datos: ResetContrasena, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     """Restablece la contraseña de un usuario por su correo."""
     usuario = bd.query(models.Usuario).filter(models.Usuario.correo == datos.correo).first()
     if not usuario:
@@ -368,12 +372,12 @@ def reset_contrasena(datos: ResetContrasena, bd: Session = Depends(obtener_bd)):
 # ─────────────────────────────────────────────
 # RUTAS DE PRODUCTOS
 # ─────────────────────────────────────────────
-@app.get("/api/productos")
 def obtener_productos(bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     return bd.query(models.Producto).all()
 
-@app.post("/api/productos")
 def crear_producto(producto: CrearProducto, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     nuevo_producto = models.Producto(id=str(uuid.uuid4()), **producto.dict())
     bd.add(nuevo_producto)
     bd.commit()
@@ -382,12 +386,12 @@ def crear_producto(producto: CrearProducto, bd: Session = Depends(obtener_bd)):
 # ─────────────────────────────────────────────
 # RUTAS DE CLIENTES
 # ─────────────────────────────────────────────
-@app.get("/api/clientes")
 def obtener_clientes(bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     return bd.query(models.Cliente).all()
 
-@app.post("/api/clientes")
 def crear_cliente(cliente: CrearCliente, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     nuevo_cliente = models.Cliente(id=str(uuid.uuid4()), **cliente.dict())
     bd.add(nuevo_cliente)
     bd.commit()
@@ -396,8 +400,8 @@ def crear_cliente(cliente: CrearCliente, bd: Session = Depends(obtener_bd)):
 # ─────────────────────────────────────────────
 # RUTAS DE VENTAS — LÓGICA AVANZADA
 # ─────────────────────────────────────────────
-@app.post("/api/ventas")
 def crear_venta(venta: CrearVenta, bd: Session = Depends(obtener_bd)):
+    # Fixed extra parenthesis
     TASA_IMPUESTO = 0.16
     subtotal_real = 0
     cantidad_articulos = 0

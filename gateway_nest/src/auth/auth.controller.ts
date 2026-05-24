@@ -1,12 +1,15 @@
 import { Controller, Post, Body, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Public } from './public.decorator';
 import * as jwt from 'jsonwebtoken';
 
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
+  @Public()
   @Post('login')
-  async login(@Body() body: { correo: string; contrasena: string }) {
+  async login(@Body() body: any) {
+    this.logger.debug(`Received login body: ${JSON.stringify(body)}`);
     const { correo, contrasena } = body;
 
     try {

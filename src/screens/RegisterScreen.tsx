@@ -57,7 +57,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBack }) => {
       setSuccess(true);
       setTimeout(() => onBack(), 2500);
     } catch (err: any) {
-      setError(err.message || 'Error al crear la cuenta');
+      const msg = typeof err === 'string' ? err : (err.message || JSON.stringify(err) || 'Error al crear la cuenta');
+      setError(msg);
     } finally {
       setLoading(false);
     }

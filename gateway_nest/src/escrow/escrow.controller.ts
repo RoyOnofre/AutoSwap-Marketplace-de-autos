@@ -8,7 +8,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 
 @ApiTags('Escrow')
 @ApiBearerAuth()
-@Controller('v1/escrow')
+@Controller('escrow')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class EscrowController {
   constructor(private readonly escrowService: EscrowService) {}

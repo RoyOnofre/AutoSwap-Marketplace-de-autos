@@ -1,6 +1,5 @@
-const env = (import.meta as any).env as Record<string, string | undefined>;
-const API_URL = env.VITE_API_URL || "http://localhost:8004/api";
-const GATEWAY_URL = env.VITE_GATEWAY_URL || "http://localhost:3001/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8004/api";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3001/v1";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || '';
@@ -47,12 +46,15 @@ export const api = {
   },
 
   registrar: async (nombre: string, correo: string, contrasena: string, rol: string) => {
-    const res = await fetch(`${API_URL}/auth/registro`, {
+    const res = await fetch(`${GATEWAY_URL}/auth/registro`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nombre, correo, contrasena, rol })
     });
-    if (!res.ok) throw new Error((await res.json()).detail);
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || err?.message || `Error al registrar usuario (${res.status})`);
+    }
     return res.json();
   },
 

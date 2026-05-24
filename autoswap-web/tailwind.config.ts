@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss';
-import { colors, spacing, fontSizes, breakpoints } from './design-system/tokens';
+import { colors, spacing, fontFamily, breakpoints } from './design-system/tokens';
 
 const config: Config = {
   darkMode: 'class',
@@ -13,7 +13,7 @@ const config: Config = {
         neutral: colors.neutral,
       },
       spacing: spacing,
-      fontSize: fontSizes,
+      fontFamily: fontFamily,
       screens: breakpoints,
     },
   },

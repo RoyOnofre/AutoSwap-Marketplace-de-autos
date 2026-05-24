@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database import SessionLocal
-from .. import models
+from database import SessionLocal
+import models
 import uuid
 
 router = APIRouter(prefix="/api/ofertas", tags=["Ofertas"])

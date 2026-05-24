@@ -9,8 +9,8 @@ Uso:
     python recrear_usuarios.py
 """
 
-from .database import SessionLocal, engine
-from . import models
+from database import SessionLocal, engine
+import models
 import uuid
 from passlib.context import CryptContext
 
