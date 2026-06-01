@@ -434,5 +434,31 @@ export const api = {
       throw new Error(err.message || "Error al registrar inspección");
     }
     return res.json();
-  }
+  },
+  // 🛒 NUEVO: FLUJO TRANSACCIONAL DE COMPRA
+  comprarVehiculo: async (vehiculoId: string) => {
+    const res = await fetch(`${API_URL}/vehiculos/${vehiculoId}/comprar`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error al comprar vehículo");
+    }
+    return res.json();
+  },
+
+  // 🕵️‍♂️ NUEVO: COLA DE VALIDACIÓN PARA EL INSPECTOR
+  obtenerColaAprobacion: async () => {
+    const res = await fetch(`${API_URL}/vehiculos/cola-aprobacion`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error obteniendo cola de aprobación");
+    }
+    return res.json();
+  },
+
 };

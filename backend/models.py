@@ -256,6 +256,22 @@ class CaracteristicaVehiculo(Base):
 
     vehiculo = relationship("Vehiculo", back_populates="caracteristicas")
 
+class Compra(Base):
+    __tablename__ = "compras"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    comprador_id = Column(String, ForeignKey("usuarios.id"), nullable=False)
+    vehiculo_id = Column(String, ForeignKey("vehiculos.id"), nullable=False)
+    vendedor_id = Column(String, ForeignKey("usuarios.id"), nullable=False)
+    metodo_pago = Column(String, nullable=False)  # QR, EFECTIVO, BANCA_MOVIL, DOLARES
+    codigo_transaccion = Column(String, unique=True, nullable=False)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)
+    monto = Column(Float, nullable=False)
+    # Relationships
+    comprador = relationship("Usuario", foreign_keys=[comprador_id])
+    vehiculo = relationship("Vehiculo", foreign_keys=[vehiculo_id])
+    vendedor = relationship("Usuario", foreign_keys=[vendedor_id])
+
 class RegistroAuditoriaValidacion(Base):
     __tablename__ = "registro_auditoria_validacion"
 

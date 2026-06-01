@@ -799,20 +799,10 @@ def listar_vehiculos(
     for v in vehiculos:
         resultado.append({
             "id": v.id,
-            "vendedor_id": v.vendedor_id,
             "titulo": v.titulo,
-            "descripcion": v.descripcion,
             "marca": v.marca,
             "modelo": v.modelo,
-            "anio": v.anio,
-            "kilometraje_km": v.kilometraje_km,
             "precio_clp": v.precio_clp,
-            "categoria": v.categoria,
-            "tipo_combustible": v.tipo_combustible,
-            "transmision": v.transmision,
-            "color_exterior": v.color_exterior,
-            "patente": v.patente,
-            "region": v.region,
             "ciudad": v.ciudad,
             "estado_validacion": v.estado_validacion,
             "motivo_rechazo": v.motivo_rechazo,
@@ -886,23 +876,104 @@ def validar_vehiculo(
 
     registrar_auditoria(bd, revisor.id, "EDITAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' validado como {estado_nuevo}.")
     return {"mensaje": f"Vehículo validado como {estado_nuevo} exitosamente"}
-@app.post("/api/vehiculos/{vehiculo_id}/comprar")
-def comprar_vehiculo(
-    vehiculo_id: str,
-    comprador: models.Usuario = Depends(obtener_usuario_desde_token),
-    bd: Session = Depends(obtener_bd)
-):
-    if comprador.rol != "comprador":
-        raise HTTPException(status_code=403, detail="Permisos insuficientes: Solo compradores pueden comprar vehículos")
-    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
-    if not vehiculo:
-        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
-    if vehiculo.estado_validacion != "aprobado":
-        raise HTTPException(status_code=400, detail="El vehículo no está aprobado para compra")
-    # Simular creación de transacción/escrow
-    # Aquí podría integrarse con un servicio de pago; por ahora registramos auditoría
-    registrar_auditoria(bd, comprador.id, "COMPRA", f"Comprador {comprador.id} inició compra del vehículo {vehiculo.id}")
-    return {"mensaje": "Proceso de compra iniciado. Se enviará enlace de pago al comprador."}
+        # Endpoint for processing vehicle purchase transaction
+        @app.post("/api/vehiculos/{vehiculo_id}/comprar", status_code=status.HTTP_200_OK)
+        async def comprar_vehiculo(
+            vehiculo_id: str,
+            compra: models.Compra,  # placeholder for request body, will be replaced below
+            comprador: models.Usuario = Depends(obtener_usuario_desde_token),
+            bd: Session = Depends(obtener_bd)
+        ):
+            """
+            Process a vehicle purchase.
+            Expects a JSON body with the selected payment method.
+            """
+            # Validate role
+            if comprador.rol != "comprador":
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="Permisos insuficientes: Solo los usuarios con rol 'comprador' pueden adquirir vehículos.")
+
+            # Find active vehicle
+            vehiculo = bd.query(models.Vehiculo).filter(
+                models.Vehiculo.id == vehiculo_id,
+                models.Vehiculo.es_activo == True
+            ).first()
+            if not vehiculo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail="El vehículo solicitado no existe o ya no se encuentra disponible en el catálogo.")
+            # Ensure vehicle is approved
+            if vehiculo.estado_validacion != "aprobado":
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="Operación inválida: El vehículo no cuenta con la aprobación del inspector.")
+
+            # Validate payment method from request body
+            data = await request.json()
+            metodo_pago = data.get("metodo_pago")
+            if metodo_pago not in ["QR", "EFECTIVO", "BANCA_MOVIL", "DOLARES"]:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="Método de pago no válido. Use QR, EFECTIVO, BANCA_MOVIL o DOLARES.")
+
+            # Generate transaction code
+            prefijo_map = {"QR": "QR", "EFECTIVO": "EF", "BANCA_MOVIL": "BM", "DOLARES": "USD"}
+            prefijo = prefijo_map[metodo_pago]
+            timestamp = int(datetime.datetime.utcnow().timestamp())
+            codigo_transaccion = f"TX-{prefijo}-{timestamp}-{uuid.uuid4().hex[:8].upper()}"
+
+            try:
+                # Create purchase record
+                nueva_compra = models.Compra(
+                    comprador_id=comprador.id,
+                    vehiculo_id=vehiculo.id,
+                    vendedor_id=vehiculo.vendedor_id,
+                    metodo_pago=metodo_pago,
+                    codigo_transaccion=codigo_transaccion,
+                    monto=vehiculo.precio_clp,
+                    fecha=datetime.datetime.utcnow()
+                )
+                bd.add(nueva_compra)
+
+                # Update vehicle status to sold
+                vehiculo.estado_validacion = "vendido"
+                bd.commit()
+                bd.refresh(nueva_compra)
+
+                return {
+                    "exito": True,
+                    "mensaje": "¡Compra iniciada exitosamente! El vehículo ha cambiado a estado vendido.",
+                    "compra_id": nueva_compra.id,
+                    "codigo_transaccion": codigo_transaccion,
+                    "nuevo_estado_vehiculo": "vendido"
+                }
+            except Exception as e:
+                bd.rollback()
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                    detail=f"Error crítico en la base de datos de TechStore-Manager: {str(e)}")
+
+        # Endpoint for inspector approval queue
+        @app.get("/api/vehiculos/cola-aprobacion", status_code=status.HTTP_200_OK)
+        def listar_cola_aprobacion(
+            inspector: models.Usuario = Depends(obtener_usuario_desde_token),
+            bd: Session = Depends(obtener_bd)
+        ):
+            """
+            Returns list of vehicles pending approval for inspector.
+            """
+            if inspector.rol != "inspector":
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="Acceso denegado: Solo el personal de inspección técnica puede acceder a esta cola.")
+            try:
+                vehiculos_pendientes = bd.query(models.Vehiculo).filter(
+                    models.Vehiculo.estado_validacion == "pendiente",
+                    models.Vehiculo.es_activo == True
+                ).order_by(models.Vehiculo.creado_at.asc()).all()
+                return {
+                    "exito": True,
+                    "total_pendientes": len(vehiculos_pendientes),
+                    "vehiculos": vehiculos_pendientes
+                }
+            except Exception as e:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                    detail=f"Error al recuperar la cola de aprobación: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
