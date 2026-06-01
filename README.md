@@ -17,7 +17,7 @@ Materia: SIS324 – INGINIERIA DE SOFWARE
 # AutoSwap – Marketplace de Autos Usados (Bolivia)
 
 ## 📦 Repositorio
-Este repo contiene **tres entornos** que componen la plataforma completa:
+Este repocitorio contiene **tres entornos** que componen la plataforma completa:
 
 - **Backend (NestJS Gateway)** – API que gestiona usuarios, listings, escrow, pagos (Mercado Pago sandbox) y KYC.
 - **Web (Next.js 14 – App Router)** – Frontend para compradores y vendedores.
