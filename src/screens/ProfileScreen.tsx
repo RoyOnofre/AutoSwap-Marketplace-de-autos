@@ -39,10 +39,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
   const [timezone, setTimezone] = useState('(GMT-04:00) La Paz');
   const [twoFactor, setTwoFactor] = useState(true);
 
+  // Load full profile from Supabase on component mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await api.obtenerPerfil(user.id);
+        setUser(prev => ({ ...prev, ...profile }));
+        if (profile.bio) setBio(profile.bio);
+        if (profile.language) setLanguage(profile.language);
+        if (profile.timezone) setTimezone(profile.timezone);
+        if (profile.twoFactor !== undefined) setTwoFactor(profile.twoFactor);
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      }
+    };
+    if (user.id && user.id !== '0' && user.id !== '') {
+      loadProfile();
+    }
+  }, [user.id]);
+
+
   useEffect(() => {
     if (currentUser && currentUser.name !== 'Cargando...') {
        setUser(prev => ({
          ...prev,
+         id: currentUser.id || prev.id,
          name: currentUser.name,
          email: currentUser.email,
          initials: currentUser.initials,
@@ -114,22 +135,45 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      const dataToSave = {
-        ...user,
-        bio,
-        language,
-        timezone,
-        twoFactor
+    try {
+      const payload = {
+        nombre: user.name,
+        correo: user.email,
+        avatar: user.avatar,
+        bio: bio,
+        language: language,
+        timezone: timezone,
+        two_factor: twoFactor,
       };
-      localStorage.setItem(`profile_${userRole}`, JSON.stringify(dataToSave));
-      window.dispatchEvent(new CustomEvent('profileUpdated'));
-      setIsSaving(false);
+      const response = await api.actualizarUsuario(user.id, payload);
+      console.log('Update response:', response);
+      if (response && response.usuario) {
+        localStorage.setItem(`profile_${userRole}`, JSON.stringify(response.usuario));
+        localStorage.setItem('userName', response.usuario.nombre || response.usuario.name);
+        localStorage.setItem('userEmail', response.usuario.correo || response.usuario.email);
+        localStorage.setItem('userInitials', response.usuario.iniciales || 'U');
+        if (response.usuario.avatar) {
+          localStorage.setItem('userAvatar', response.usuario.avatar);
+        }
+        window.dispatchEvent(new Event('profileUpdated'));
+      }
       setShowSuccess(true);
+    } catch (err) {
+      console.error('Error saving changes:', err);
+      // Attempt to read response text if available
+      if (err instanceof Error && (err as any).response) {
+        try {
+          const txt = await (err as any).response.text();
+          console.error('Server response:', txt);
+        } catch (_) {}
+      }
+      alert('Error guardando los cambios en el servidor');
+    } finally {
+      setIsSaving(false);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 1000);
+    }
   };
 
   return (

@@ -19,8 +19,10 @@ import {
   Info,
   XCircle,
   Car,
-  ClipboardCheck
+  ClipboardCheck,
+  CheckCircle
 } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Screen, UserRole, Notification } from './types';
 import { MOCK_NOTIFICATIONS } from './constants';
@@ -29,6 +31,7 @@ import { MOCK_NOTIFICATIONS } from './constants';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import DashboardScreen from './screens/DashboardScreen';
+import InspectorScreen from './screens/InspectorScreen';
 import InventoryScreen from './screens/InventoryScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import AddProductScreen from './screens/AddProductScreen';
@@ -56,10 +59,11 @@ const App: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [currentUser, setCurrentUser] = useState({
+    id: localStorage.getItem('userId') || '',
     name: localStorage.getItem('userName') || 'Cargando...',
     initials: localStorage.getItem('userInitials') || '??',
     email: localStorage.getItem('userEmail') || '',
-    avatar: localStorage.getItem('userAvatar') || null as string | null
+    avatar: localStorage.getItem('userAvatar') || (null as string | null)
   });
 
   // Load user profile and listen for updates
@@ -69,6 +73,7 @@ const App: React.FC = () => {
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
         setCurrentUser({
+          id: parsed.id || parsed.uid || '',
           name: parsed.nombre || parsed.name || 'Usuario',
           initials: parsed.iniciales || (parsed.nombre || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2),
           email: parsed.correo || parsed.email || '',
@@ -119,12 +124,14 @@ const App: React.FC = () => {
     localStorage.setItem('userRole', role);
     if (userData) {
       setCurrentUser({
+        id: userData.id || '',
         name: userData.nombre,
         initials: userData.iniciales,
         email: userData.correo,
         avatar: userData.avatar || null
       });
       // Guardar datos para persistencia física
+      localStorage.setItem('userId', userData.id || '');
       localStorage.setItem('userName', userData.nombre);
       localStorage.setItem('userEmail', userData.correo);
       localStorage.setItem('userInitials', userData.iniciales);
@@ -136,7 +143,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     localStorage.clear();
     setUserRole('admin');
-    setCurrentUser({ name: 'Usuario', initials: 'U', email: '', avatar: null });
+    setCurrentUser({ id: '', name: 'Usuario', initials: 'U', email: '', avatar: null });
     navigateTo('login');
   };
 
@@ -193,6 +200,8 @@ const App: React.FC = () => {
         return <LoginScreen onLogin={handleLogin} onRegister={() => navigateTo('register')} />;
       case 'register':
         return <RegisterScreen onBack={() => navigateTo('login')} />;
+      case 'inspector':
+        return <InspectorScreen userRole={userRole} onBack={() => navigateTo('dashboard')} />;
       case 'dashboard':
         return <DashboardScreen userRole={userRole} onNavigate={navigateTo} />;
       case 'inventory':
@@ -202,7 +211,7 @@ const App: React.FC = () => {
           </ProtectedRoute>
         );
       case 'product-detail':
-        return <ProductDetailScreen productId={selectedProductId || '1'} userRole={userRole} onBack={() => navigateTo('inventory')} />;
+        return <ProductDetailScreen productId={selectedProductId || '1'} userRole={userRole} currentUser={currentUser} onBack={() => navigateTo('inventory')} />;
       case 'add-product':
         return (
           <ProtectedRoute allowedRoles={['admin', 'vendedor']} userRole={userRole} onAccessDenied={() => navigateTo('inventory')}>
@@ -257,6 +266,7 @@ const App: React.FC = () => {
 
   return (
     <div translate="no" className={`min-h-screen flex ${getBgColor()} tech-pattern transition-colors duration-500 overflow-hidden`}>
+      <Toaster position="top-right" />
       {/* Sidebar */}
       <AnimatePresence>
         {showSidebar && isSidebarOpen && (
@@ -301,6 +311,16 @@ const App: React.FC = () => {
                   roleColor={roleColor}
                 />
               )}
+
+            {userRole === 'inspector' && (
+              <SidebarItem
+                icon={<CheckCircle size={20} />}
+                label="Vehículos a Inspeccionar"
+                active={currentScreen === 'inspector'}
+                onClick={() => navigateTo('inspector')}
+                roleColor={roleColor}
+              />
+            )}
 
               {(userRole === 'admin' || userRole === 'comprador' || userRole === 'vendedor' || userRole === 'inspector') && (
                 <SidebarItem 

@@ -1,5 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8004/api";
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3001/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8005/api";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:8005/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || '';
@@ -276,6 +276,137 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: "Error al reembolsar" }));
       throw new Error(err.message || "Error al reembolsar");
+    }
+    return res.json();
+  },
+
+  getVehiculos: async (filtros?: { buscar?: string; marca?: string; modelo?: string; categoria?: string }) => {
+    const params = new URLSearchParams();
+    if (filtros?.buscar) params.append("buscar", filtros.buscar);
+    if (filtros?.marca) params.append("marca", filtros.marca);
+    if (filtros?.modelo) params.append("modelo", filtros.modelo);
+    if (filtros?.categoria) params.append("categoria", filtros.categoria);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await fetch(`${API_URL}/vehiculos${query}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Error obteniendo vehículos");
+    return res.json();
+  },
+
+  registrarVehiculo: async (vehiculo: any) => {
+    const res = await fetch(`${API_URL}/vehiculos`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(vehiculo)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error registrando vehículo");
+    }
+    return res.json();
+  },
+
+  actualizarVehiculo: async (id: string, vehiculo: any) => {
+    const res = await fetch(`${API_URL}/vehiculos/${id}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(vehiculo)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error actualizando vehículo");
+    }
+    return res.json();
+  },
+
+  eliminarVehiculo: async (id: string) => {
+    const res = await fetch(`${API_URL}/vehiculos/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error eliminando vehículo");
+    }
+    return res.json();
+  },
+
+  validarVehiculo: async (id: string, validacion: { accion: 'aprobado' | 'rechazado' | 'reiniciado_a_pendiente'; motivo?: string }) => {
+    const res = await fetch(`${API_URL}/vehiculos/${id}/validacion`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(validacion)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error al validar el vehículo");
+    }
+    return res.json();
+  },
+
+  submitRating: async (listingId: string, rating: number, comment: string) => {
+    const res = await fetch(`${GATEWAY_URL}/ratings`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ listing_id: listingId, rating, comment })
+    });
+    if (!res.ok) throw new Error('Error enviando la calificación');
+    return res.json();
+  },
+
+  getPendingInspections: async () => {
+    const res = await fetch(`${GATEWAY_URL}/listings/needs-inspection`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Error fetching pending inspections');
+    return res.json();
+  },
+
+  updateListingStatus: async (listingId: string, status: string) => {
+    const res = await fetch(`${GATEWAY_URL}/listings/${listingId}/status`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error('Error updating listing status');
+    return res.json();
+  },
+
+  obtenerPerfil: async (id: string) => {
+    const res = await fetch(`${API_URL}/usuarios/${id}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error('Error fetching perfil:', txt);
+      throw new Error('Error al obtener el perfil del usuario');
+    }
+    const data = await res.json();
+    return {
+      id: data.id,
+      name: data.nombre ?? data.name ?? '',
+      email: data.correo ?? data.email ?? '',
+      phone: data.telefono ?? data.phone ?? '',
+      address: data.direccion ?? data.address ?? '',
+      avatar: data.avatar,
+      bio: data.bio || '',
+      language: data.language || 'Español (Bolivia)',
+      timezone: data.timezone || '(GMT-04:00) La Paz',
+      twoFactor: data.two_factor ?? false,
+      role: data.rol ?? data.role ?? '',
+      kyc_estado: data.kyc_estado ?? data.kyc ?? 'Pendiente',
+    };
+  },
+
+  getMyListings: async () => {
+    const res = await fetch(`${GATEWAY_URL}/listings/my`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      return api.getProductos();
     }
     return res.json();
   },

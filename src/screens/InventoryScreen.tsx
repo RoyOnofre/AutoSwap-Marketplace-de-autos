@@ -18,22 +18,22 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAd
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await api.getProductos();
-        if (data.length === 0) {
-          // Si la base de datos está vacía, mostramos los mocks temporalmente
+        const data = await api.getVehiculos();
+        if (!data || data.length === 0) {
+          // Si la base de datos está vacía, mostramos los mocks de vehículos temporales
           setProducts(MOCK_PRODUCTS);
         } else {
-          // Mapeamos los productos de Python a la interfaz de TypeScript
+          // Mapeamos los vehículos de Python a la interfaz de TypeScript
           setProducts(data.map((p: any) => ({
             id: p.id,
-            name: p.nombre,
-            sku: p.sku,
-            category: p.categoria,
-            price: p.precio,
-            stock: p.stock,
-            image: p.imagen,
-            status: p.stock > 10 ? 'In Stock' : (p.stock > 0 ? 'Low Stock' : 'Out of Stock'),
-            description: p.estado
+            name: p.titulo,
+            sku: p.patente || p.id.substring(0, 6).toUpperCase(),
+            category: p.categoria.toUpperCase(),
+            price: p.precio_clp,
+            stock: 1,
+            image: (p.fotos && p.fotos.length > 0) ? p.fotos[0].ruta_almacenamiento : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
+            status: p.estado_validacion === 'aprobado' ? 'In Stock' : 'Low Stock',
+            description: p.descripcion
           })));
         }
       } catch (error) {

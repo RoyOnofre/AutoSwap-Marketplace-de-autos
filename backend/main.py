@@ -1,9 +1,17 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from typing import Optional
+from typing import Optional, List
+from jose import jwt
+
+SECRET_KEY = "autoswap-super-secret-key-for-sprint-2"
+ALGORITHM = "HS256"
+
+def crear_token_acceso(datos: dict):
+    para_encriptar = datos.copy()
+    return jwt.encode(para_encriptar, SECRET_KEY, algorithm=ALGORITHM)
 import uuid
 import datetime
 from passlib.context import CryptContext
@@ -28,7 +36,29 @@ models.Base.metadata.create_all(bind=engine)
 with engine.connect() as connection:
     try:
         from sqlalchemy import text
+        connection.execute(text("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'estado_anuncio') THEN
+                CREATE TYPE estado_anuncio AS ENUM ('pendiente', 'aprobado', 'rechazado');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'categoria_vehiculo') THEN
+                CREATE TYPE categoria_vehiculo AS ENUM ('sedan', 'suv', 'hatchback', 'pickup', 'van', 'otro');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tipo_combustible') THEN
+                CREATE TYPE tipo_combustible AS ENUM ('gasolina', 'diesel', 'electrico', 'hibrido');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tipo_transmision') THEN
+                CREATE TYPE tipo_transmision AS ENUM ('manual', 'automatico');
+            END IF;
+        END $$;
+        """))
+        connection.commit()
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS kyc_estado VARCHAR DEFAULT 'Pendiente';"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bio TEXT;"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS language VARCHAR DEFAULT 'Español (Bolivia)';"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS timezone VARCHAR DEFAULT '(GMT-04:00) La Paz';"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS two_factor BOOLEAN DEFAULT FALSE;"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR;"))
         connection.commit()
         print("[OK] Columna 'kyc_estado' verificada/agregada.")
     except Exception as e:
@@ -69,6 +99,22 @@ def obtener_bd():
     finally:
         bd.close()
 
+def obtener_usuario_desde_token(authorization: Optional[str] = Header(None), bd: Session = Depends(obtener_bd)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado: Token faltante o formato inválido")
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        usuario_id: str = payload.get("id")
+        if usuario_id is None:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        usuario = bd.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+        if not usuario:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+        return usuario
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
 # ─────────────────────────────────────────────
 # MODELOS PYDANTIC
 # ─────────────────────────────────────────────
@@ -89,10 +135,65 @@ class ActualizarUsuario(BaseModel):
     estado: Optional[str] = None
     kyc_estado: Optional[str] = None
     nueva_contrasena: Optional[str] = None
+    bio: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+    avatar: Optional[str] = None
 
 class ResetContrasena(BaseModel):
     correo: str
     nueva_contrasena: str
+
+class CrearFotoVehiculo(BaseModel):
+    ruta_almacenamiento: str
+    etiqueta_angulo: str
+    es_primaria: Optional[bool] = False
+    orden_visualizacion: Optional[int] = 0
+
+class CrearCaracteristicaVehiculo(BaseModel):
+    clave_caracteristica: str
+    etiqueta_caracteristica: str
+    categoria: str
+
+class CrearVehiculoPydantic(BaseModel):
+    titulo: str
+    descripcion: str
+    marca: str
+    modelo: str
+    anio: int
+    kilometraje_km: int
+    precio_clp: int
+    categoria: str
+    tipo_combustible: str
+    transmision: str
+    color_exterior: Optional[str] = None
+    patente: Optional[str] = None
+    region: str
+    ciudad: str
+    fotos: Optional[List[CrearFotoVehiculo]] = []
+    caracteristicas: Optional[List[CrearCaracteristicaVehiculo]] = []
+
+class ActualizarVehiculoPydantic(BaseModel):
+    titulo: Optional[str] = None
+    descripcion: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    anio: Optional[int] = None
+    kilometraje_km: Optional[int] = None
+    precio_clp: Optional[int] = None
+    categoria: Optional[str] = None
+    tipo_combustible: Optional[str] = None
+    transmision: Optional[str] = None
+    color_exterior: Optional[str] = None
+    patente: Optional[str] = None
+    region: Optional[str] = None
+    ciudad: Optional[str] = None
+    fotos: Optional[List[CrearFotoVehiculo]] = None
+    caracteristicas: Optional[List[CrearCaracteristicaVehiculo]] = None
+
+class ValidarAnuncioAnuncio(BaseModel):
+    accion: str
+    motivo: Optional[str] = None
 
 class CrearProducto(BaseModel):
     nombre: str
@@ -152,6 +253,10 @@ def serializar_usuario(u: models.Usuario) -> dict:
         "kyc_estado": u.kyc_estado if hasattr(u, 'kyc_estado') else "Pendiente",
         "iniciales": u.iniciales,
         "avatar": u.avatar,
+        "bio": getattr(u, 'bio', ''),
+        "language": getattr(u, 'language', 'Español (Bolivia)'),
+        "timezone": getattr(u, 'timezone', '(GMT-04:00) La Paz'),
+        "two_factor": getattr(u, 'two_factor', False),
         "ultimo_login": ultimo,
     }
 
@@ -205,8 +310,11 @@ def login(peticion: PeticionLogin, bd: Session = Depends(obtener_bd)):
     registrar_auditoria(bd, usuario.id, "LOGIN", "Inicio de sesión exitoso.")
     print(f"[AUTH SUCCESS] Usuario autenticado: {usuario.correo}")
     
+    token = crear_token_acceso({"id": usuario.id, "rol": usuario.rol, "correo": usuario.correo})
+    
     return {
         "mensaje": "Login exitoso",
+        "token": token,
         "usuario": {
             "id": usuario.id,
             "nombre": usuario.nombre,
@@ -255,18 +363,16 @@ def obtener_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return serializar_usuario(usuario)
 
+@app.put("/api/usuarios/{usuario_id}")
 def actualizar_usuario(usuario_id: str, datos: ActualizarUsuario, bd: Session = Depends(obtener_bd)):
-    # Fixed extra parenthesis
-    """Edita nombre, correo, rol, estado o contraseña de un usuario."""
+    """Edita nombre, correo, rol, estado, KYC, bio, idioma, zona horaria y 2FA del usuario."""
     usuario = bd.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
     # Verificar correo duplicado si se cambia
     if datos.correo and datos.correo != usuario.correo:
         if bd.query(models.Usuario).filter(models.Usuario.correo == datos.correo).first():
             raise HTTPException(status_code=400, detail="Ese correo ya está en uso por otro usuario")
-    
     if datos.nombre is not None:
         usuario.nombre = datos.nombre
         usuario.iniciales = "".join([n[0] for n in datos.nombre.split()]).upper()[:2]
@@ -278,21 +384,29 @@ def actualizar_usuario(usuario_id: str, datos: ActualizarUsuario, bd: Session = 
         usuario.estado = datos.estado
     if datos.kyc_estado is not None:
         usuario.kyc_estado = datos.kyc_estado
+    if datos.bio is not None:
+        usuario.bio = datos.bio
+    if datos.language is not None:
+        usuario.language = datos.language
+    if datos.timezone is not None:
+        usuario.timezone = datos.timezone
+    if datos.avatar is not None:
+        usuario.avatar = datos.avatar
+    if datos.two_factor is not None:
+        usuario.two_factor = datos.two_factor
     if datos.nueva_contrasena is not None:
         if len(datos.nueva_contrasena) < 6:
             raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
         usuario.contrasena_encriptada = obtener_hash_contrasena(datos.nueva_contrasena)
-    
     bd.commit()
     bd.refresh(usuario)
-    
-    # Audit log
     registrar_auditoria(bd, usuario_id, "EDITAR", f"Usuario {usuario.nombre} actualizado.")
-    
     return {"mensaje": "Usuario actualizado exitosamente", "usuario": serializar_usuario(usuario)}
 
+# Duplicate block removed
+
+@app.patch("/api/usuarios/{usuario_id}/estado")
 def cambiar_estado_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
-    # Fixed extra parenthesis
     """Alterna el estado de un usuario entre Activo e Inactivo."""
     usuario = bd.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
@@ -306,7 +420,11 @@ def cambiar_estado_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
     
     return {"mensaje": f"Usuario {usuario.estado.lower()} exitosamente", "estado": usuario.estado}
 
+# Duplicate block removed
+
+@app.delete("/api/usuarios/{usuario_id}")
 def eliminar_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
+
     # Fixed extra parenthesis
     """
     Elimina un usuario del sistema. 
@@ -356,6 +474,7 @@ def eliminar_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
         print(f"Error en eliminar_usuario: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+@app.post("/api/auth/reset-contrasena")
 def reset_contrasena(datos: ResetContrasena, bd: Session = Depends(obtener_bd)):
     # Fixed extra parenthesis
     """Restablece la contraseña de un usuario por su correo."""
@@ -473,7 +592,319 @@ def obtener_auditoria(bd: Session = Depends(obtener_bd)):
         "fecha": l.fecha.strftime("%d/%m/%Y %H:%M")
     } for l in logs]
 
+# ─────────────────────────────────────────────
+# SPRINT 2 — ENDPOINTS DE VEHÍCULOS
+# ─────────────────────────────────────────────
+
+@app.post("/api/vehiculos")
+def registrar_vehiculo(
+    datos: CrearVehiculoPydantic,
+    vendedor: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    if vendedor.rol not in ["vendedor", "admin"]:
+        raise HTTPException(status_code=403, detail="Permisos insuficientes: Solo vendedores o administradores pueden publicar vehículos")
+    
+    if len(datos.titulo) > 150:
+        raise HTTPException(status_code=400, detail="El título no puede superar los 150 caracteres")
+    if len(datos.descripcion) < 100:
+        raise HTTPException(status_code=400, detail="La descripción debe contener un mínimo de 100 caracteres")
+    if datos.anio < 1990:
+        raise HTTPException(status_code=400, detail="El año debe ser igual o superior a 1990")
+    if datos.kilometraje_km < 0:
+        raise HTTPException(status_code=400, detail="El kilometraje no puede ser negativo")
+    if datos.precio_clp <= 0:
+        raise HTTPException(status_code=400, detail="El precio debe ser superior a 0")
+
+    # Crear entidad de vehículo
+    nuevo_vehiculo = models.Vehiculo(
+        id=str(uuid.uuid4()),
+        vendedor_id=vendedor.id,
+        titulo=datos.titulo,
+        descripcion=datos.descripcion,
+        marca=datos.marca,
+        modelo=datos.modelo,
+        anio=datos.anio,
+        kilometraje_km=datos.kilometraje_km,
+        precio_clp=datos.precio_clp,
+        categoria=datos.categoria,
+        tipo_combustible=datos.tipo_combustible,
+        transmision=datos.transmision,
+        color_exterior=datos.color_exterior,
+        patente=datos.patente,
+        region=datos.region,
+        ciudad=datos.ciudad,
+        estado_validacion="pendiente",
+        es_activo=True
+    )
+    bd.add(nuevo_vehiculo)
+
+    # Insertar fotos
+    if datos.fotos:
+        for foto in datos.fotos:
+            nueva_foto = models.FotoVehiculo(
+                id=str(uuid.uuid4()),
+                vehiculo_id=nuevo_vehiculo.id,
+                ruta_almacenamiento=foto.ruta_almacenamiento,
+                etiqueta_angulo=foto.etiqueta_angulo,
+                es_primaria=foto.es_primaria,
+                orden_visualizacion=foto.orden_visualizacion
+            )
+            bd.add(nueva_foto)
+
+    # Insertar equipamiento/características
+    if datos.caracteristicas:
+        for char in datos.caracteristicas:
+            nueva_char = models.CaracteristicaVehiculo(
+                id=str(uuid.uuid4()),
+                vehiculo_id=nuevo_vehiculo.id,
+                clave_caracteristica=char.clave_caracteristica,
+                etiqueta_caracteristica=char.etiqueta_caracteristica,
+                categoria=char.categoria
+            )
+            bd.add(nueva_char)
+
+    bd.commit()
+    bd.refresh(nuevo_vehiculo)
+    registrar_auditoria(bd, vendedor.id, "CREAR", f"Vehículo '{nuevo_vehiculo.marca} {nuevo_vehiculo.modelo}' registrado.")
+    
+    return {"mensaje": "Vehículo registrado exitosamente", "id": nuevo_vehiculo.id}
+
+
+@app.put("/api/vehiculos/{vehiculo_id}")
+def actualizar_vehiculo(
+    vehiculo_id: str,
+    datos: ActualizarVehiculoPydantic,
+    usuario: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
+    if not vehiculo:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
+    
+    if usuario.rol != "admin" and vehiculo.vendedor_id != usuario.id:
+        raise HTTPException(status_code=403, detail="No autorizado para editar este vehículo")
+
+    # Actualizar campos simples si se proporcionan
+    for campo, valor in datos.dict(exclude_unset=True).items():
+        if campo not in ["fotos", "caracteristicas"] and valor is not None:
+            setattr(vehiculo, campo, valor)
+
+    # Re-validar si cambia título o descripción
+    if datos.titulo and len(datos.titulo) > 150:
+        raise HTTPException(status_code=400, detail="El título no puede superar los 150 caracteres")
+    if datos.descripcion and len(datos.descripcion) < 100:
+        raise HTTPException(status_code=400, detail="La descripción debe contener un mínimo de 100 caracteres")
+
+    # Si se actualizan fotos
+    if datos.fotos is not None:
+        # Limpiar anteriores
+        bd.query(models.FotoVehiculo).filter(models.FotoVehiculo.vehiculo_id == vehiculo.id).delete()
+        for foto in datos.fotos:
+            nueva_foto = models.FotoVehiculo(
+                id=str(uuid.uuid4()),
+                vehiculo_id=vehiculo.id,
+                ruta_almacenamiento=foto.ruta_almacenamiento,
+                etiqueta_angulo=foto.etiqueta_angulo,
+                es_primaria=foto.es_primaria,
+                orden_visualizacion=foto.orden_visualizacion
+            )
+            bd.add(nueva_foto)
+
+    # Si se actualiza equipamiento
+    if datos.caracteristicas is not None:
+        # Limpiar anteriores
+        bd.query(models.CaracteristicaVehiculo).filter(models.CaracteristicaVehiculo.vehiculo_id == vehiculo.id).delete()
+        for char in datos.caracteristicas:
+            nueva_char = models.CaracteristicaVehiculo(
+                id=str(uuid.uuid4()),
+                vehiculo_id=vehiculo.id,
+                clave_caracteristica=char.clave_caracteristica,
+                etiqueta_caracteristica=char.etiqueta_caracteristica,
+                categoria=char.categoria
+            )
+            bd.add(nueva_char)
+
+    bd.commit()
+    bd.refresh(vehiculo)
+    registrar_auditoria(bd, usuario.id, "EDITAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' actualizado.")
+    return {"mensaje": "Vehículo actualizado exitosamente"}
+
+
+@app.delete("/api/vehiculos/{vehiculo_id}")
+def eliminar_vehiculo(
+    vehiculo_id: str,
+    usuario: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
+    if not vehiculo:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
+    
+    if usuario.rol != "admin" and vehiculo.vendedor_id != usuario.id:
+        raise HTTPException(status_code=403, detail="No autorizado para eliminar este vehículo")
+
+    # Borrado lógico
+    vehiculo.es_activo = False
+    vehiculo.eliminado_at = datetime.datetime.utcnow()
+    bd.commit()
+    
+    registrar_auditoria(bd, usuario.id, "ELIMINAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' borrado de forma lógica.")
+    return {"mensaje": "Vehículo eliminado exitosamente"}
+
+
+@app.get("/api/vehiculos")
+def listar_vehiculos(
+    buscar: Optional[str] = None,
+    marca: Optional[str] = None,
+    modelo: Optional[str] = None,
+    categoria: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    bd: Session = Depends(obtener_bd)
+):
+    es_autorizado = False
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            rol = payload.get("rol")
+            if rol in ["admin", "inspector"]:
+                es_autorizado = True
+        except Exception:
+            pass
+
+    query = bd.query(models.Vehiculo).filter(models.Vehiculo.es_activo == True)
+    if not es_autorizado:
+        query = query.filter(models.Vehiculo.estado_validacion == "aprobado")
+
+    if buscar:
+        termino = f"%{buscar}%"
+        query = query.filter(
+            or_(
+                models.Vehiculo.titulo.ilike(termino),
+                models.Vehiculo.descripcion.ilike(termino),
+                models.Vehiculo.marca.ilike(termino),
+                models.Vehiculo.modelo.ilike(termino)
+            )
+        )
+    if marca:
+        query = query.filter(models.Vehiculo.marca.ilike(marca))
+    if modelo:
+        query = query.filter(models.Vehiculo.modelo.ilike(modelo))
+    if categoria:
+        query = query.filter(models.Vehiculo.categoria == categoria)
+
+    vehiculos = query.all()
+    resultado = []
+    for v in vehiculos:
+        resultado.append({
+            "id": v.id,
+            "vendedor_id": v.vendedor_id,
+            "titulo": v.titulo,
+            "descripcion": v.descripcion,
+            "marca": v.marca,
+            "modelo": v.modelo,
+            "anio": v.anio,
+            "kilometraje_km": v.kilometraje_km,
+            "precio_clp": v.precio_clp,
+            "categoria": v.categoria,
+            "tipo_combustible": v.tipo_combustible,
+            "transmision": v.transmision,
+            "color_exterior": v.color_exterior,
+            "patente": v.patente,
+            "region": v.region,
+            "ciudad": v.ciudad,
+            "estado_validacion": v.estado_validacion,
+            "motivo_rechazo": v.motivo_rechazo,
+            "es_activo": v.es_activo,
+            "creado_at": v.creado_at.isoformat() if v.creado_at else None,
+            "actualizado_at": v.actualizado_at.isoformat() if v.actualizado_at else None,
+            "fotos": [{
+                "id": f.id,
+                "ruta_almacenamiento": f.ruta_almacenamiento,
+                "etiqueta_angulo": f.etiqueta_angulo,
+                "es_primaria": f.es_primaria,
+                "orden_visualizacion": f.orden_visualizacion
+            } for f in v.fotos],
+            "caracteristicas": [{
+                "id": c.id,
+                "clave_caracteristica": c.clave_caracteristica,
+                "etiqueta_caracteristica": c.etiqueta_caracteristica,
+                "categoria": c.categoria
+            } for c in v.caracteristicas]
+        })
+    return resultado
+
+
+@app.patch("/api/vehiculos/{vehiculo_id}/validacion")
+def validar_vehiculo(
+    vehiculo_id: str,
+    datos: ValidarAnuncioAnuncio,
+    revisor: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    if revisor.rol not in ["admin", "inspector"]:
+        raise HTTPException(status_code=403, detail="Permisos insuficientes: Solo administradores o inspectores pueden validar anuncios")
+
+    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
+    if not vehiculo:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
+
+    if datos.accion not in ["aprobado", "rechazado", "reiniciado_a_pendiente"]:
+        raise HTTPException(status_code=400, detail="Acción de validación inválida")
+
+    if datos.accion == "rechazado" and not datos.motivo:
+        raise HTTPException(status_code=400, detail="El motivo de rechazo es obligatorio")
+
+    estado_anterior = vehiculo.estado_validacion
+    
+    # Mapear acción a estado
+    estado_nuevo = "pendiente"
+    if datos.accion == "aprobado":
+        estado_nuevo = "aprobado"
+    elif datos.accion == "rechazado":
+        estado_nuevo = "rechazado"
+
+    # Actualizar estado de validación en el vehículo
+    vehiculo.estado_validacion = estado_nuevo
+    vehiculo.motivo_rechazo = datos.motivo if datos.accion == "rechazado" else None
+    vehiculo.revisado_por = revisor.id
+    vehiculo.revisado_at = datetime.datetime.utcnow()
+
+    # Registrar en el historial de auditoría de validaciones
+    auditoria = models.RegistroAuditoriaValidacion(
+        id=str(uuid.uuid4()),
+        vehiculo_id=vehiculo.id,
+        admin_id=revisor.id,
+        accion=datos.accion,
+        estado_anterior=estado_anterior,
+        estado_nuevo=estado_nuevo,
+        motivo=datos.motivo
+    )
+    bd.add(auditoria)
+    bd.commit()
+
+    registrar_auditoria(bd, revisor.id, "EDITAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' validado como {estado_nuevo}.")
+    return {"mensaje": f"Vehículo validado como {estado_nuevo} exitosamente"}
+@app.post("/api/vehiculos/{vehiculo_id}/comprar")
+def comprar_vehiculo(
+    vehiculo_id: str,
+    comprador: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    if comprador.rol != "comprador":
+        raise HTTPException(status_code=403, detail="Permisos insuficientes: Solo compradores pueden comprar vehículos")
+    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
+    if not vehiculo:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
+    if vehiculo.estado_validacion != "aprobado":
+        raise HTTPException(status_code=400, detail="El vehículo no está aprobado para compra")
+    # Simular creación de transacción/escrow
+    # Aquí podría integrarse con un servicio de pago; por ahora registramos auditoría
+    registrar_auditoria(bd, comprador.id, "COMPRA", f"Comprador {comprador.id} inició compra del vehículo {vehiculo.id}")
+    return {"mensaje": "Proceso de compra iniciado. Se enviará enlace de pago al comprador."}
+
 if __name__ == "__main__":
     import uvicorn
-    print("Servidor MASTER API iniciado en http://localhost:8004")
-    uvicorn.run(app, host="0.0.0.0", port=8004)
+    print("Servidor MASTER API iniciado en http://localhost:8005")
+    uvicorn.run(app, host="0.0.0.0", port=8005)

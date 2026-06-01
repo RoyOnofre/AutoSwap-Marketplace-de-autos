@@ -46,7 +46,8 @@ export type Screen =
   | 'profile'
   | 'sales-history'
   | 'settings'
-  | 'user-management';
+  | 'user-management'
+  | 'inspector';
 
 export interface Sale {
   id: string;

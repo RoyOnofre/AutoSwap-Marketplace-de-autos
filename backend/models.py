@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
+import uuid
 
 # --- TABLAS DE APOYO (Deben definirse primero) ---
 
@@ -41,6 +42,10 @@ class Usuario(Base):
     kyc_estado = Column(String, default="Pendiente")
     iniciales = Column(String)
     avatar = Column(String, nullable=True)
+    bio = Column(String, nullable=True)
+    language = Column(String, default='Español (Bolivia)')
+    timezone = Column(String, default='(GMT-04:00) La Paz')
+    two_factor = Column(Boolean, default=False)
     ultimo_login = Column(DateTime, nullable=True)
     # Nuevas relaciones
     anuncios = relationship("Anuncio", back_populates="vendedor", cascade="all, delete-orphan")
@@ -193,3 +198,75 @@ class Auditoria(Base):
     
     # Relación para saber qué usuario hizo la acción
     usuario = relationship("Usuario")
+
+class Vehiculo(Base):
+    __tablename__ = "vehiculos"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    vendedor_id = Column(String, ForeignKey("usuarios.id"), nullable=False)
+    titulo = Column(String(150), nullable=False)
+    descripcion = Column(String, nullable=False)
+    marca = Column(String(80), nullable=False)
+    modelo = Column(String(80), nullable=False)
+    anio = Column(Integer, nullable=False)
+    kilometraje_km = Column(Integer, nullable=False)
+    precio_clp = Column(Float, nullable=False)
+    categoria = Column(String, nullable=False)
+    tipo_combustible = Column(String, nullable=False)
+    transmision = Column(String, nullable=False)
+    color_exterior = Column(String(50), nullable=True)
+    patente = Column(String(8), unique=True, nullable=True)
+    region = Column(String(80), nullable=False)
+    ciudad = Column(String(80), nullable=False)
+    estado_validacion = Column(String, nullable=False, default="pendiente")
+    motivo_rechazo = Column(String, nullable=True)
+    revisado_por = Column(String, ForeignKey("usuarios.id"), nullable=True)
+    revisado_at = Column(DateTime, nullable=True)
+    es_activo = Column(Boolean, nullable=False, default=True)
+    creado_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    actualizado_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    eliminado_at = Column(DateTime, nullable=True)
+
+    vendedor = relationship("Usuario", foreign_keys=[vendedor_id])
+    revisor = relationship("Usuario", foreign_keys=[revisado_por])
+    fotos = relationship("FotoVehiculo", back_populates="vehiculo", cascade="all, delete-orphan")
+    caracteristicas = relationship("CaracteristicaVehiculo", back_populates="vehiculo", cascade="all, delete-orphan")
+
+class FotoVehiculo(Base):
+    __tablename__ = "fotos_vehiculo"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    vehiculo_id = Column(String, ForeignKey("vehiculos.id", ondelete="CASCADE"), nullable=False)
+    ruta_almacenamiento = Column(String, nullable=False)
+    etiqueta_angulo = Column(String(50), nullable=False)
+    es_primaria = Column(Boolean, nullable=False, default=False)
+    orden_visualizacion = Column(Integer, nullable=False, default=0)
+    creado_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+    vehiculo = relationship("Vehiculo", back_populates="fotos")
+
+class CaracteristicaVehiculo(Base):
+    __tablename__ = "caracteristicas_vehiculo"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    vehiculo_id = Column(String, ForeignKey("vehiculos.id", ondelete="CASCADE"), nullable=False)
+    clave_caracteristica = Column(String(80), nullable=False)
+    etiqueta_caracteristica = Column(String(120), nullable=False)
+    categoria = Column(String(60), nullable=False)
+
+    vehiculo = relationship("Vehiculo", back_populates="caracteristicas")
+
+class RegistroAuditoriaValidacion(Base):
+    __tablename__ = "registro_auditoria_validacion"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    vehiculo_id = Column(String, ForeignKey("vehiculos.id", ondelete="CASCADE"), nullable=False)
+    admin_id = Column(String, ForeignKey("usuarios.id"), nullable=False)
+    accion = Column(String(30), nullable=False)
+    estado_anterior = Column(String, nullable=False)
+    estado_nuevo = Column(String, nullable=False)
+    motivo = Column(String, nullable=True)
+    creado_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+    vehiculo = relationship("Vehiculo")
+    admin = relationship("Usuario")

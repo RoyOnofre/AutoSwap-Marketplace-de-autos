@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, User, Tag, Package, Printer, X, CheckCircle, Download } from 'lucide-react';
+import { RatingModal } from '../components/RatingModal';
 import { api } from '../api';
 import { UserRole } from '../types';
 
@@ -16,6 +17,8 @@ const POSScreen: React.FC<POSScreenProps> = ({ userRole, currentUser }) => {
   const [showInvoice, setShowInvoice] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [customerName, setCustomerName] = useState(currentUser?.name || 'Vendedor');
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedListingId, setSelectedListingId] = useState('');
 
   const isClient = userRole === 'cliente';
 
@@ -71,6 +74,11 @@ const POSScreen: React.FC<POSScreenProps> = ({ userRole, currentUser }) => {
       setInvoiceData(data);
       setShowInvoice(true);
       setCart([]);
+      // Open rating modal for the first purchased listing
+      if (data.items && data.items.length > 0) {
+        setSelectedListingId(data.items[0].product.id);
+        setShowRatingModal(true);
+      }
     } catch (error) {
       alert("Error al sincronizar la venta con el servidor MASTER");
     }
@@ -174,8 +182,9 @@ const POSScreen: React.FC<POSScreenProps> = ({ userRole, currentUser }) => {
             <CreditCard size={24} /> PROCESAR PAGO
           </button>
         </div>
+        {showRatingModal && <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} listingId={selectedListingId} />}
       </div>
-    </div>
+      </div>
   );
 };
 
