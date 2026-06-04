@@ -125,7 +125,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister }) => {
 
   return (
     <div className="h-full flex items-center justify-center p-6 bg-[url('https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center relative">
+  {/* Back button with current date */}
+
       <div className="absolute inset-0 bg-background-dark/85 backdrop-blur-sm"></div>
+{/* Back button with date */}
+<button
+  onClick={() => window.history.back()}
+  className="absolute top-4 left-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-md shadow-lg z-20 transition"
+>
+  ← Volver atras
+</button>
       
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
