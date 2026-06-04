@@ -45,7 +45,7 @@ class Usuario(Base):
     bio = Column(String, nullable=True)
     language = Column(String, default='Español (Bolivia)')
     timezone = Column(String, default='(GMT-04:00) La Paz')
-    two_factor = Column(Boolean, default=False)
+    calificacion_promedio = Column(Float, default=0.0)
     ultimo_login = Column(DateTime, nullable=True)
     # Nuevas relaciones
     anuncios = relationship("Anuncio", back_populates="vendedor", cascade="all, delete-orphan")

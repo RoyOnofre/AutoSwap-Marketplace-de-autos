@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Download, MoreVertical, Eye, Calendar, ShoppingBag, CreditCard, User, TrendingUp } from 'lucide-react';
+import { Search, Filter, Download, MoreVertical, Eye, Calendar, ShoppingBag, CreditCard, User, TrendingUp, Star, RefreshCw } from 'lucide-react';
 import { MOCK_SALES } from '../constants';
 import { UserRole } from '../types';
+import { api } from '../api';
+import { toast } from 'react-hot-toast';
+import { RatingModal } from '../components/RatingModal';
 
 interface SalesHistoryScreenProps {
   userRole: UserRole;
@@ -9,65 +12,125 @@ interface SalesHistoryScreenProps {
 
 const SalesHistoryScreen: React.FC<SalesHistoryScreenProps> = ({ userRole }) => {
   const [sales, setSales] = useState<any[]>([]);
-  const [customerName, setCustomerName] = useState('Alejandro Moreno');
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Rating states
+  const [selectedVendedorId, setSelectedVendedorId] = useState<string | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+
+  const fetchHistory = async () => {
+    setLoading(true);
+    try {
+      if (userRole === 'comprador') {
+        const res = await api.getCompras();
+        setSales(res);
+      } else if (userRole === 'vendedor') {
+        const res = await api.getVentas();
+        setSales(res);
+      } else {
+        // Fallback for admin or inspector
+        const savedSales = JSON.parse(localStorage.getItem('sales_history') || '[]');
+        const formattedSavedSales = savedSales.map((s: any) => ({
+          id: s.id,
+          fecha: s.date,
+          vendedor: { nombre: 'Sistema' },
+          comprador: { nombre: s.customer || 'Desconocido' },
+          vehiculo: { marca: 'Producto', modelo: 'Tecnológico' },
+          monto: s.total,
+          metodo_pago: s.paymentMethod || 'Efectivo',
+          codigo_transaccion: s.id,
+        }));
+        setSales([...formattedSavedSales, ...MOCK_SALES.map((m: any) => ({
+          id: m.id,
+          fecha: m.date,
+          vendedor: { nombre: 'Sistema' },
+          comprador: { nombre: m.customer },
+          vehiculo: { marca: 'Mock', modelo: 'Device' },
+          monto: m.total,
+          metodo_pago: m.paymentMethod,
+          codigo_transaccion: m.id,
+        }))]);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error al cargar el historial.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Load customer name
-    const savedProfile = localStorage.getItem(`profile_${userRole}`);
-    if (savedProfile) {
-      const parsed = JSON.parse(savedProfile);
-      setCustomerName(parsed.name || 'Alejandro Moreno');
-    }
-
-    // Load sales from localStorage
-    const savedSales = JSON.parse(localStorage.getItem('sales_history') || '[]');
-    
-    // Convert saved sales to match table format if needed
-    const formattedSavedSales = savedSales.map((s: any) => ({
-      ...s,
-      items: s.items.length, // Just count for the table
-      status: 'Completada',
-      paymentMethod: 'Efectivo' // Default for now
-    }));
-
-    setSales([...formattedSavedSales, ...MOCK_SALES]);
+    fetchHistory();
   }, [userRole]);
 
-  // Filter sales if user is a client (simulation)
-  const filteredSales = userRole === 'cliente' 
-    ? sales.filter(s => s.customer === customerName)
-    : sales;
+  // Filter sales by search query (transaction code, vehicle model/brand, name)
+  const filteredSales = sales.filter(s => {
+    const query = searchQuery.toLowerCase();
+    const matchesCode = (s.codigo_transaccion || '').toLowerCase().includes(query);
+    const matchesBrand = (s.vehiculo?.marca || '').toLowerCase().includes(query);
+    const matchesModel = (s.vehiculo?.modelo || '').toLowerCase().includes(query);
+    const matchesBuyer = (s.comprador?.nombre || '').toLowerCase().includes(query);
+    const matchesSeller = (s.vendedor?.nombre || '').toLowerCase().includes(query);
+    return matchesCode || matchesBrand || matchesModel || matchesBuyer || matchesSeller;
+  });
+
+  const getScreenTitle = () => {
+    if (userRole === 'comprador') return 'Mis Compras';
+    if (userRole === 'vendedor') return 'Mis Ventas Realizadas';
+    return 'Historial de Transacciones';
+  };
+
+  const getScreenSub = () => {
+    if (userRole === 'comprador') return 'Consulta el detalle y reputación de tus adquisiciones certificadas';
+    if (userRole === 'vendedor') return 'Control y seguimiento de tus ventas con garantía Escrow';
+    return 'Auditoría completa de transacciones y conciliaciones del sistema';
+  };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">{userRole === 'cliente' ? 'Mis Compras' : 'Historial de Ventas'}</h1>
-          <p className="text-slate-400">
-            {userRole === 'cliente' ? 'Consulta el detalle de tus adquisiciones tecnológicas' : 'Auditoría detallada de todas las transacciones'}
-          </p>
+          <h1 className="text-3xl font-black text-white uppercase tracking-tight">{getScreenTitle()}</h1>
+          <p className="text-slate-400 text-xs font-semibold">{getScreenSub()}</p>
         </div>
-        {userRole !== 'cliente' && (
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={fetchHistory}
+            disabled={loading}
+            className="p-2 bg-surface-dark border border-primary/10 rounded-xl text-slate-400 hover:text-primary transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+          {userRole === 'admin' && (
             <button className="flex items-center gap-2 px-4 py-2 bg-surface-dark border border-primary/10 rounded-xl text-sm font-medium text-slate-300 hover:bg-primary/10 hover:text-primary transition-all">
               <Download size={18} />
               Exportar Reporte
             </button>
-            <button className="flex items-center gap-2 px-6 py-2 bg-primary text-background-dark rounded-xl text-sm font-bold glow-shadow hover:scale-105 transition-all">
-              <Calendar size={18} />
-              Filtrar Fecha
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Summary Stats - Only for staff */}
-      {userRole !== 'cliente' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <SaleStatCard label="Ventas Totales" value="1,245" trend="+12%" icon={<ShoppingBag size={20} />} />
-          <SaleStatCard label="Ingresos" value="$245,800" trend="+15%" icon={<CreditCard size={20} />} />
-          <SaleStatCard label="Ticket Promedio" value="$197.42" trend="+3%" icon={<TrendingUp size={20} />} />
-          <SaleStatCard label="Clientes Nuevos" value="42" trend="+8%" icon={<User size={20} />} />
+      {/* Summary Stats - Only for vendedor and admin */}
+      {(userRole === 'vendedor' || userRole === 'admin') && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SaleStatCard 
+            label={userRole === 'vendedor' ? "Ventas Totales" : "Órdenes Totales"} 
+            value={filteredSales.length.toString()} 
+            trend="+12%" 
+            icon={<ShoppingBag size={20} />} 
+          />
+          <SaleStatCard 
+            label="Monto Acumulado" 
+            value={`Bs. ${filteredSales.reduce((acc, curr) => acc + (curr.monto || 0), 0).toLocaleString()}`} 
+            trend="+15%" 
+            icon={<CreditCard size={20} />} 
+          />
+          <SaleStatCard 
+            label="Ticket Promedio" 
+            value={`Bs. ${filteredSales.length > 0 ? Math.round(filteredSales.reduce((acc, curr) => acc + (curr.monto || 0), 0) / filteredSales.length).toLocaleString() : '0'}`} 
+            trend="+3%" 
+            icon={<TrendingUp size={20} />} 
+          />
         </div>
       )}
 
@@ -79,104 +142,131 @@ const SalesHistoryScreen: React.FC<SalesHistoryScreenProps> = ({ userRole }) => 
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input 
                 type="text" 
-                placeholder="Buscar por ID, producto..." 
-                className="bg-background-dark/50 border border-primary/10 rounded-xl py-2 pl-10 pr-4 w-64 focus:outline-none focus:border-primary/50 text-sm"
+                placeholder="Buscar por código, auto, persona..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-background-dark/50 border border-primary/10 rounded-xl py-2 pl-10 pr-4 w-64 focus:outline-none focus:border-primary/50 text-sm text-white"
               />
             </div>
-            <button className="p-2 bg-background-dark/50 border border-primary/10 rounded-xl text-slate-400 hover:text-primary transition-colors">
-              <Filter size={20} />
-            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">Estado:</span>
-            <select className="bg-background-dark/50 border border-primary/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
-              <option>Todos</option>
-              <option>Completada</option>
-              <option>Cancelada</option>
-              <option>Reembolsada</option>
-            </select>
+          <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+            Mostrando {filteredSales.length} transacciones
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-background-dark/30">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID Venta</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
-                {userRole !== 'cliente' && <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>}
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Items</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Pago</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary/5">
-              {filteredSales.map((sale) => (
-                <tr key={sale.id} className="hover:bg-primary/5 transition-colors group">
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-mono text-primary font-bold">{sale.id}</span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-400">
-                    {sale.date}
-                  </td>
-                  {userRole !== 'cliente' && (
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-white">{sale.customer}</p>
-                    </td>
-                  )}
-                  <td className="px-6 py-4 text-sm text-slate-300">
-                    {sale.items}
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-black text-white">${sale.total.toLocaleString()}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs text-slate-400 flex items-center gap-2">
-                      <CreditCard size={14} className="text-primary" />
-                      {sale.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      sale.status === 'Completada' ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' :
-                      sale.status === 'Cancelada' ? 'bg-rose-400/10 text-rose-400 border border-rose-400/20' :
-                      'bg-amber-400/10 text-amber-400 border border-amber-400/20'
-                    }`}>
-                      {sale.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 text-slate-500 hover:text-primary transition-colors">
-                        <Eye size={18} />
-                      </button>
-                      <button className="p-2 text-slate-500 hover:text-primary transition-colors">
-                        <MoreVertical size={18} />
-                      </button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="p-16 flex flex-col items-center justify-center space-y-4">
+              <RefreshCw className="animate-spin text-primary w-10 h-10" />
+              <p className="text-slate-400 text-xs font-bold">Cargando transacciones...</p>
+            </div>
+          ) : filteredSales.length === 0 ? (
+            <div className="p-16 text-center space-y-4">
+              <ShoppingBag size={48} className="mx-auto text-slate-600 opacity-30" />
+              <p className="text-slate-400 text-sm font-bold">No se encontraron transacciones en el historial.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-background-dark/30">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Código</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vehículo</th>
+                  {userRole !== 'comprador' && <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Comprador</th>}
+                  {userRole !== 'vendedor' && <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vendedor</th>}
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Monto</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Pago</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                  {userRole === 'comprador' && <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acción</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-primary/5">
+                {filteredSales.map((sale) => (
+                  <tr key={sale.id} className="hover:bg-primary/5 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-mono text-primary font-bold">{sale.codigo_transaccion || sale.id}</span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400">
+                      {sale.fecha || 'Reciente'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-bold text-white uppercase">{sale.vehiculo?.marca} {sale.vehiculo?.modelo}</p>
+                      {sale.vehiculo?.anio && <span className="text-[10px] text-slate-500">{sale.vehiculo?.anio}</span>}
+                    </td>
+                    {userRole !== 'comprador' && (
+                      <td className="px-6 py-4 text-xs font-bold text-slate-350">
+                        {sale.comprador?.nombre || 'S/D'}
+                      </td>
+                    )}
+                    {userRole !== 'vendedor' && (
+                      <td className="px-6 py-4 text-xs font-bold text-slate-350">
+                        {sale.vendedor?.nombre || 'S/D'}
+                      </td>
+                    )}
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-black text-white">Bs. {(sale.monto || 0).toLocaleString()}</p>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400">
+                      {sale.metodo_pago || 'QR'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Asegurado (Escrow)
+                      </span>
+                    </td>
+                    {userRole === 'comprador' && (
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => {
+                            if (sale.vendedor_id) {
+                              setSelectedVendedorId(sale.vendedor_id);
+                              setShowRatingModal(true);
+                            } else {
+                              toast.error("Vendedor no disponible para calificar");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-background-dark border border-amber-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                        >
+                          <Star size={12} />
+                          Calificar
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+
+      {selectedVendedorId && (
+        <RatingModal
+          isOpen={showRatingModal}
+          onClose={() => {
+            setShowRatingModal(false);
+            setSelectedVendedorId(null);
+          }}
+          vendedorId={selectedVendedorId}
+          onSuccess={() => {
+            fetchHistory();
+          }}
+        />
+      )}
     </div>
   );
 };
 
 const SaleStatCard = ({ label, value, trend, icon }: any) => (
-  <div className="bg-surface-dark/50 border border-primary/10 p-6 rounded-[32px] backdrop-blur-sm">
+  <div className="bg-surface-dark/50 border border-primary/10 p-6 rounded-[32px] backdrop-blur-sm animate-in zoom-in-95 duration-300">
     <div className="flex items-center justify-between mb-4">
       <div className="p-3 bg-background-dark rounded-2xl text-primary">
         {icon}
       </div>
       <span className="text-xs font-bold text-emerald-400">{trend}</span>
     </div>
-    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">{label}</p>
-    <h3 className="text-2xl font-black text-white mt-1">{value}</h3>
+    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{label}</p>
+    <h3 className="text-xl font-black text-white mt-1 uppercase tracking-tight">{value}</h3>
   </div>
 );
 

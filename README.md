@@ -25,7 +25,7 @@ Este repocitorio contiene **tres entornos** que componen la plataforma completa:
 
 > **Todas las instrucciones fueron validadas y compilan sin errores (PASS).**
 
----
+---TempPass123!
 
 ## 🚀 Levantar los entornos localmente
 > **Requisitos previos**

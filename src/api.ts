@@ -1,5 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8005/api";
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:8005/api";
+const API_URL = process.env.VITE_API_URL || `http://localhost:${process.env.VITE_BACKEND_PORT || 8005}/api`;
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || process.env.VITE_GATEWAY_URL || "http://localhost:3001/v1";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || '';
@@ -15,7 +15,7 @@ export const api = {
   // ─────────────────────────────────────────
   login: async (correo: string, contrasena: string) => {
     try {
-      const res = await fetch(`${GATEWAY_URL}/auth/login`, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo, contrasena })
@@ -39,23 +39,30 @@ export const api = {
       return data;
     } catch (error: any) {
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        throw new Error('No se pudo conectar con el gateway de autenticación. Verifica que esté iniciado en el puerto 3001.');
+        throw new Error('No se pudo conectar con el servidor de autenticación. Verifica que el backend esté ejecutándose en el puerto 8005.');
       }
       throw error;
     }
   },
 
   registrar: async (nombre: string, correo: string, contrasena: string, rol: string) => {
-    const res = await fetch(`${GATEWAY_URL}/auth/registro`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, correo, contrasena, rol })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.detail || err?.message || `Error al registrar usuario (${res.status})`);
+    try {
+      const res = await fetch(`${API_URL}/auth/registro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, correo, contrasena, rol })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || err?.message || `Error al registrar usuario (${res.status})`);
+      }
+      return res.json();
+    } catch (error: any) {
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error('No se pudo conectar con el servidor de registro. Verifica que el backend esté ejecutándose en el puerto 8005.');
+      }
+      throw error;
     }
-    return res.json();
   },
 
   resetContrasena: async (correo: string, nueva_contrasena: string) => {
@@ -90,13 +97,20 @@ export const api = {
     kyc_estado?: string;
     nueva_contrasena?: string;
   }) => {
-    const res = await fetch(`${API_URL}/usuarios/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(datos)
-    });
-    if (!res.ok) throw new Error((await res.json()).detail);
-    return res.json();
+    try {
+      const res = await fetch(`${API_URL}/usuarios/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(datos)
+      });
+      if (!res.ok) throw new Error((await res.json()).detail);
+      return res.json();
+    } catch (error: any) {
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error('No se pudo conectar con el servidor al actualizar usuario. Verifica que el backend esté ejecutándose en el puerto 8005.');
+      }
+      throw error;
+    }
   },
 
   cambiarEstadoUsuario: async (id: string) => {
@@ -127,7 +141,7 @@ export const api = {
       return res.json();
     } catch (error: any) {
       if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-        throw new Error("No se pudo conectar con el servidor. Asegúrate de que el backend esté ejecutándose en el puerto 8004.");
+        throw new Error("No se pudo conectar con el servidor. Asegúrate de que el backend esté ejecutándose en el puerto 8005.");
       }
       throw error;
     }
@@ -332,15 +346,15 @@ export const api = {
     return res.json();
   },
 
-  validarVehiculo: async (id: string, validacion: { accion: 'aprobado' | 'rechazado' | 'reiniciado_a_pendiente'; motivo?: string }) => {
-    const res = await fetch(`${API_URL}/vehiculos/${id}/validacion`, {
-      method: "PATCH",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(validacion)
+  aprobarVehiculo: async (id: string) => {
+    console.log('Aprobando Vehiculo ID:', id);
+    const res = await fetch(`${API_URL}/vehiculos/${id}/aprobar`, {
+      method: "PUT",
+      headers: getAuthHeaders()
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
-      throw new Error(err?.detail || "Error al validar el vehículo");
+      throw new Error(err?.detail || "Error aprobando vehículo");
     }
     return res.json();
   },
@@ -398,6 +412,7 @@ export const api = {
       twoFactor: data.two_factor ?? false,
       role: data.rol ?? data.role ?? '',
       kyc_estado: data.kyc_estado ?? data.kyc ?? 'Pendiente',
+      calificacion_promedio: data.calificacion_promedio ?? 0.0,
     };
   },
 
@@ -436,10 +451,11 @@ export const api = {
     return res.json();
   },
   // 🛒 NUEVO: FLUJO TRANSACCIONAL DE COMPRA
-  comprarVehiculo: async (vehiculoId: string) => {
-    const res = await fetch(`${API_URL}/vehiculos/${vehiculoId}/comprar`, {
+  comprarVehiculo: async (vehiculoId: string, metodoPago: string = "QR") => {
+    const res = await fetch(`${API_URL}/transacciones/comprar/${vehiculoId}`, {
       method: "POST",
       headers: getAuthHeaders(),
+      body: JSON.stringify({ metodo_pago: metodoPago })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
@@ -457,6 +473,47 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => null);
       throw new Error(err?.detail || "Error obteniendo cola de aprobación");
+    }
+    return res.json();
+  },
+
+  getCompras: async () => {
+    const res = await fetch(`${API_URL}/transacciones/compras`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error obteniendo compras");
+    }
+    return res.json();
+  },
+
+  getVentas: async () => {
+    const res = await fetch(`${API_URL}/transacciones/ventas`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error obteniendo ventas");
+    }
+    return res.json();
+  },
+
+  calificarVendedor: async (vendedorId: string, puntaje: number, comentario?: string) => {
+    const res = await fetch(`${API_URL}/calificaciones`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        vendedor_id: vendedorId,
+        puntaje: puntaje,
+        comentario: comentario
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error al calificar al vendedor");
     }
     return res.json();
   },

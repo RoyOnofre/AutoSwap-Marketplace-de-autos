@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Package, AlertTriangle, TrendingUp, DollarSign, Search, Filter, MoreHorizontal, Eye } from 'lucide-react';
-import { MOCK_PRODUCTS } from '../constants';
+import { Package, AlertTriangle, TrendingUp, DollarSign, Search, Filter, MoreHorizontal, Eye, CheckCircle } from 'lucide-react';
+
 import { api } from '../api';
 import { UserRole, Product } from '../types';
 
@@ -15,36 +15,41 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAd
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await api.getVehiculos();
-        if (!data || data.length === 0) {
-          // Si la base de datos está vacía, mostramos los mocks de vehículos temporales
-          setProducts(MOCK_PRODUCTS);
-        } else {
-          // Mapeamos los vehículos de Python a la interfaz de TypeScript
-          setProducts(data.map((p: any) => ({
-            id: p.id,
-            name: p.titulo,
-            sku: p.patente || p.id.substring(0, 6).toUpperCase(),
-            category: p.categoria.toUpperCase(),
-            price: p.precio_clp,
+  const fetchProducts = async () => {
+    try {
+      const data = await api.getVehiculos();
+      // Ensure we have an array; if the API already returns compatible Product shape, use it directly.
+      const mapped = Array.isArray(data)
+        ? data.map((p: any) => ({
+            id: p.id ?? '',
+            name: p.titulo ?? p.name ?? 'Sin nombre',
+            sku: p.patente ?? p.id?.substring(0, 6).toUpperCase() ?? '',
+            category: (p.categoria ?? '').toUpperCase(),
+            price: p.precio_clp ?? 0,
             stock: 1,
-            image: (p.fotos && p.fotos.length > 0) ? p.fotos[0].ruta_almacenamiento : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
-            status: p.estado_validacion === 'aprobado' ? 'In Stock' : 'Low Stock',
-            description: p.descripcion
-          })));
-        }
-      } catch (error) {
-        console.error("Error cargando productos de la BD:", error);
-        setProducts(MOCK_PRODUCTS); // Fallback en caso de error
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
+            image:
+              p.fotos && p.fotos.length > 0
+                ? p.fotos[0].ruta_almacenamiento
+                : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
+            status:
+              p.estado_validacion === 'aprobado'
+                ? 'In Stock'
+                : 'Low Stock',
+            description: p.descripcion ?? ''
+          }))
+        : [];
+      setProducts(mapped);
+    } catch (error) {
+      console.error('Error cargando vehículos:', error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+useEffect(() => {
+  fetchProducts();
+}, []);
 
   if (loading) {
     return <div className="p-8 flex items-center justify-center h-full"><div className="text-primary font-bold">Cargando inventario de la base de datos...</div></div>;
@@ -143,6 +148,21 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAd
                 }`}>
                   {product.status}
                 </span>
+                { product.status === 'Low Stock' && (userRole === 'admin' || userRole === 'inspector') && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.aprobarVehiculo(product.id);
+                        fetchProducts();
+                      } catch (e) {
+                        console.error('Error aprobando vehículo:', e);
+                      }
+                    }}
+                    className="mt-2 px-3 py-1 bg-emerald-500 text-white rounded text-sm hover:bg-emerald-600 transition"
+                  >
+                    Aprobar Vehículo
+                  </button>
+                ) }
               </div>
             </div>
             <div className="p-6 flex-1 flex flex-col">

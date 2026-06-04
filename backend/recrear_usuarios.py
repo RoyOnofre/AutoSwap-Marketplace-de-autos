@@ -36,7 +36,7 @@ USUARIOS_BASE = [
     {
         "nombre": "Admin AutoSwap",
         "correo": "admin@autoswap.bo",
-        "contrasena": "admin123",
+        "contrasena": "TempPass123!",
         "rol": "admin",
         "estado": "Activo",
         "kyc_estado": "Aprobado",
@@ -44,7 +44,7 @@ USUARIOS_BASE = [
     {
         "nombre": "Vendedor Demo",
         "correo": "vendedor@autoswap.bo",
-        "contrasena": "vendedor123",
+        "contrasena": "TempPass123!",
         "rol": "vendedor",
         "estado": "Activo",
         "kyc_estado": "Aprobado",
@@ -52,7 +52,7 @@ USUARIOS_BASE = [
     {
         "nombre": "Comprador Demo",
         "correo": "comprador@autoswap.bo",
-        "contrasena": "comprador123",
+        "contrasena": "TempPass123!",
         "rol": "comprador",
         "estado": "Activo",
         "kyc_estado": "Aprobado",
@@ -60,7 +60,7 @@ USUARIOS_BASE = [
     {
         "nombre": "Inspector Certificado",
         "correo": "inspector@autoswap.bo",
-        "contrasena": "inspector123",
+        "contrasena": "TempPass123!",
         "rol": "inspector",
         "estado": "Activo",
         "kyc_estado": "Aprobado",
@@ -100,10 +100,10 @@ def recrear_usuarios():
         bd.commit()
         print("\n[OK] Usuarios base creados exitosamente.")
         print("-" * 45)
-        print("  admin@autoswap.bo      -> admin123")
-        print("  vendedor@autoswap.bo   -> vendedor123")
-        print("  comprador@autoswap.bo  -> comprador123")
-        print("  inspector@autoswap.bo  -> inspector123")
+        print("  admin@autoswap.bo      -> TempPass123!")
+        print("  vendedor@autoswap.bo   -> TempPass123!")
+        print("  comprador@autoswap.bo  -> TempPass123!")
+        print("  inspector@autoswap.bo  -> TempPass123!")
         print("-" * 45)
 
     except Exception as e:

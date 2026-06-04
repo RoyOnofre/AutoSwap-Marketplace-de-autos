@@ -19,7 +19,7 @@ const VehicleCard: React.FC<Props> = ({ vehicle, userRole }) => {
   const handleSelectMethod = async (method: string) => {
     setLoading(true);
     try {
-      await api.procesarPago(vehicle.id, method);
+      await api.comprarVehiculo(vehicle.id, method);
       toast.success('Compra exitosa con método: ' + method);
     } catch (e: any) {
       toast.error(e?.message || 'Error al procesar pago');

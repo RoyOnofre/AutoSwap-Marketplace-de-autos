@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, CheckCircle, XCircle, ShieldCheck, HelpCircle, 
   MapPin, Calendar, Gauge, Key, Fuel, Hash, User, RefreshCw, 
-  FileText, Shield, ArrowRight, Sparkles, CheckSquare, AlertCircle
+  FileText, Shield, ArrowRight, Sparkles, CheckSquare, AlertCircle, Star
 } from 'lucide-react';
 import { api } from '../api';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole } from '../types';
+import { RatingModal } from '../components/RatingModal';
+import { toast } from 'react-hot-toast';
 
 interface ProductDetailScreenProps {
   productId: string;
@@ -17,6 +19,7 @@ interface ProductDetailScreenProps {
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, userRole, currentUser, onBack }) => {
   const [vehicle, setVehicle] = useState<any>(null);
+  const [seller, setSeller] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
@@ -32,6 +35,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
   const [purchaseStep, setPurchaseStep] = useState(0); // 0: Idle, 1: Creando Transacción, 2: Pago en Custodia, 3: Simulación Webhook, 4: Éxito
   const [purchaseError, setPurchaseError] = useState('');
   const [transaccionId, setTransaccionId] = useState('');
+  const [showRating, setShowRating] = useState(false);
 
   const fetchVehicleDetails = async () => {
     try {
@@ -40,6 +44,14 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
       const found = list.find((v: any) => v.id === productId);
       if (found) {
         setVehicle(found);
+        if (found.vendedor_id) {
+          try {
+            const sellerProfile = await api.obtenerPerfil(found.vendedor_id);
+            setSeller(sellerProfile);
+          } catch (err) {
+            console.error("Error al obtener perfil del vendedor:", err);
+          }
+        }
       }
     } catch (error) {
       console.error("Error cargando detalles del vehículo:", error);
@@ -61,13 +73,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
 
     setIsValidating(true);
     setValidationError('');
-    setValidationSuccess('');
-
     try {
-      await api.validarVehiculo(productId, {
-        accion,
-        motivo: accion === 'rechazado' ? rejectionReason : undefined
-      });
+      if (accion === 'aprobado') {
+        await api.aprobarVehiculo(productId);
+      } else {
+        // Rechazo: currently not supported by API; placeholder for future implementation
+        throw new Error('Rechazo de vehículo no está implementado en la API');
+      }
       setValidationSuccess(`Vehículo ${accion === 'aprobado' ? 'aprobado' : 'rechazado'} exitosamente.`);
       setRejectionReason('');
       setShowRejectForm(false);
@@ -86,44 +98,26 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
     setPurchaseError('');
     setPurchaseStep(1); // 1. Creando Transacción
 
-    const precio = vehicle?.precio_clp || 120000;
-    let createdTxId = `TX-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    // STEP 1: Create transaction via Gateway
     try {
-      const tx = await api.crearTransaccion(productId, precio, "Compra con Escrow seguro desde catálogo");
-      if (tx && tx.id) {
-        createdTxId = tx.id;
-      }
-    } catch (err) {
-      console.warn("Fallo crearTransaccion real, usando simulación visual interactiva premium.", err);
+      const res = await api.comprarVehiculo(productId, "QR");
+      setTransaccionId(res.codigo_transaccion);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setPurchaseStep(2); // Pago en Custodia
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setPurchaseStep(3); // Simulación Webhook
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setPurchaseStep(4); // Éxito
+      
+      setVehicle((prev: any) => prev ? { ...prev, estado_validacion: 'vendido' } : null);
+      toast.success('¡Compra registrada exitosamente!');
+    } catch (err: any) {
+      console.error("Error al procesar la compra:", err);
+      setPurchaseError(err.message || 'Error al procesar la compra.');
+      setPurchaseStep(0);
+      setIsPurchasing(false);
+      toast.error(err.message || 'Error al procesar la compra.');
     }
-
-    setTransaccionId(createdTxId);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // STEP 2: Initiate Payment
-    setPurchaseStep(2); // 2. Pago en Custodia
-    try {
-      await api.pagarTransaccion(createdTxId, "QR_BANCO");
-    } catch (err) {
-      console.warn("Fallo pagarTransaccion real, simulando flujo exitoso local.", err);
-    }
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // STEP 3: Confirm via Webhook Simulation
-    setPurchaseStep(3); // 3. Simulación Webhook
-    try {
-      const compradorId = currentUser?.id || 'comprador-default-id';
-      const vendedorId = vehicle?.vendedor_id || 'vendedor-default-id';
-      await api.simularWebhookPago(createdTxId, precio, compradorId, vendedorId);
-    } catch (err) {
-      console.warn("Fallo simularWebhookPago real, simulando liberación exitosa.", err);
-    }
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // STEP 4: Success
-    setPurchaseStep(4);
   };
 
   if (loading) {
@@ -281,6 +275,49 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Garantía Escrow AutoSwap Activa</p>
           </div>
 
+          {/* Seller Card (Vendido por) */}
+          {seller && (
+            <div className="glass-panel p-6 rounded-[32px] border border-primary/10 space-y-4 animate-in fade-in duration-300">
+              <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest block">Información del Vendedor</span>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary overflow-hidden shrink-0">
+                  {seller.avatar ? (
+                    <img src={seller.avatar} alt={seller.name} className="w-full h-full object-cover animate-in fade-in duration-300" />
+                  ) : (
+                    (seller.name || 'V').split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-white uppercase tracking-tight">
+                    {seller.name}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 capitalize">Vendedor Certificado</p>
+                </div>
+              </div>
+              <div className="border-t border-slate-850 pt-3 flex items-center justify-between">
+                <span className="text-[10px] text-slate-450 font-bold">Reputación:</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex text-amber-400">
+                    {[...Array(5)].map((_, i) => {
+                      const val = i + 1;
+                      const average = seller.calificacion_promedio || 0.0;
+                      return (
+                        <Star 
+                          key={i} 
+                          size={13} 
+                          className={val <= Math.round(average) ? "fill-amber-400 text-amber-400 animate-pulse" : "text-slate-700"} 
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="text-xs font-black text-white">
+                    {seller.calificacion_promedio > 0 ? seller.calificacion_promedio.toFixed(1) : 'Nuevo'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Validation Panel for Inspectors & Admins */}
           {canValidate && (
             <div className="glass-panel p-8 rounded-[40px] border border-violet-500/20 shadow-[0_0_30px_rgba(139,92,246,0.05)] space-y-6">
@@ -425,6 +462,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
                         Transacción exitosa: {transaccionId}
                       </div>
                       <button 
+                        onClick={() => setShowRating(true)}
+                        className="w-full bg-amber-500 hover:bg-amber-400 text-background-dark text-xs font-black py-3 rounded-xl transition-all uppercase flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10"
+                      >
+                        <Star size={14} className="fill-background-dark" />
+                        Calificar Vendedor
+                      </button>
+                      <button 
                         onClick={() => {
                           setIsPurchasing(false);
                           setPurchaseStep(0);
@@ -466,6 +510,16 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
 
         </div>
       </div>
+      {seller && (
+        <RatingModal 
+          isOpen={showRating} 
+          onClose={() => setShowRating(false)} 
+          vendedorId={seller.id}
+          onSuccess={(nuevoPromedio) => {
+            setSeller((prev: any) => prev ? { ...prev, calificacion_promedio: nuevoPromedio } : null);
+          }}
+        />
+      )}
     </div>
   );
 };
