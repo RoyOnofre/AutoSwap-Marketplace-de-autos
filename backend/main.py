@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from typing import Optional, List
 from jose import jwt
 
@@ -17,7 +17,6 @@ import datetime
 from passlib.context import CryptContext
 from pydantic import BaseModel
 import sys, os
-from sqlalchemy import func
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import models
 from database import SessionLocal, engine
@@ -124,9 +123,6 @@ class CrearUsuario(BaseModel):
     correo: str
     contrasena: str
     rol: str
-
-class CrearCompra(BaseModel):
-    metodo_pago: str
 
 class PeticionLogin(BaseModel):
     correo: str
@@ -263,7 +259,6 @@ def serializar_usuario(u: models.Usuario) -> dict:
         "timezone": getattr(u, 'timezone', '(GMT-04:00) La Paz'),
         "two_factor": getattr(u, 'two_factor', False),
         "ultimo_login": ultimo,
-        "calificacion_promedio": getattr(u, 'calificacion_promedio', 0.0),
     }
 
 # ─────────────────────────────────────────────
@@ -476,8 +471,8 @@ def eliminar_usuario(usuario_id: str, bd: Session = Depends(obtener_bd)):
     except HTTPException:
         raise
     except Exception as e:
-        bd.rollback()
-        print(f"Error en eliminar_usuario: {e}")
+        # Log the error and continue
+        print(f"Error processing purchase: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.post("/api/auth/reset-contrasena")
@@ -1029,10 +1024,12 @@ async def comprar_vehiculo(
                     "nuevo_estado_vehiculo": "vendido"
                 }
             except Exception as e:
-                # Placeholder error handling
                 pass
-        # Endpoint for inspector approval queue
-        @app.get("/api/vehiculos/cola-aprobacion", status_code=status.HTTP_200_OK)
+    # Log error and continue
+    print(f"Error processing purchase: {e}")
+
+# Endpoint for inspector approval queue
+@app.get("/api/vehiculos/cola-aprobacion", status_code=status.HTTP_200_OK)
         def listar_cola_aprobacion(
             inspector: models.Usuario = Depends(obtener_usuario_desde_token),
             bd: Session = Depends(obtener_bd)
@@ -1056,115 +1053,8 @@ async def comprar_vehiculo(
             except Exception as e:
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                     detail=f"Error al recuperar la cola de aprobación: {str(e)}")
-# ─────────────────────────────────────────────
-# ENDPOINTS: Transacciones (Compras y Ventas) y Calificaciones
-# ─────────────────────────────────────────────
-
-def serializar_compra(c: models.Compra) -> dict:
-    return {
-        "id": c.id,
-        "comprador_id": c.comprador_id,
-        "vehiculo_id": c.vehiculo_id,
-        "vendedor_id": c.vendedor_id,
-        "metodo_pago": c.metodo_pago,
-        "codigo_transaccion": c.codigo_transaccion,
-        "fecha": c.fecha.strftime("%Y-%m-%d %H:%M:%S") if c.fecha else None,
-        "monto": c.monto,
-        "vehiculo": {
-            "marca": c.vehiculo.marca if c.vehiculo else "Desconocido",
-            "modelo": c.vehiculo.modelo if c.vehiculo else "Desconocido",
-            "anio": c.vehiculo.anio if c.vehiculo else None,
-            "precio_clp": c.vehiculo.precio_clp if c.vehiculo else 0,
-        } if c.vehiculo else None,
-        "comprador": {
-            "nombre": c.comprador.nombre if c.comprador else "Desconocido",
-            "correo": c.comprador.correo if c.comprador else "",
-        } if c.comprador else None,
-        "vendedor": {
-            "nombre": c.vendedor.nombre if c.vendedor else "Desconocido",
-            "correo": c.vendedor.correo if c.vendedor else "",
-        } if c.vendedor else None,
-    }
-
-@app.get("/api/transacciones/compras")
-def obtener_compras(usuario: models.Usuario = Depends(obtener_usuario_desde_token), bd: Session = Depends(obtener_bd)):
-    if usuario.rol != "buyer":
-        raise HTTPException(status_code=403, detail="Acceso denegado: Solo compradores pueden ver sus compras.")
-    compras = bd.query(models.Compra).filter(models.Compra.comprador_id == usuario.id).all()
-    return [serializar_compra(c) for c in compras]
-
-# ─────────────────────────────────────────────
-# ENDPOINT DE COMPRA DE VEHÍCULO
-# ─────────────────────────────────────────────
-
-@app.post("/api/transacciones/comprar/{vehiculo_id}")
-def comprar_vehiculo(
-    vehiculo_id: str,
-    compra: CrearCompra,
-    usuario: models.Usuario = Depends(obtener_usuario_desde_token),
-    bd: Session = Depends(obtener_bd)
-):
-    if usuario.rol != "buyer":
-        raise HTTPException(status_code=403, detail="Acceso denegado: Solo compradores pueden comprar.")
-    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
-    if not vehiculo:
-        raise HTTPException(status_code=404, detail="Vehículo no encontrado.")
-    codigo = str(uuid.uuid4())
-    nueva_compra = models.Compra(
-        comprador_id=usuario.id,
-        vehiculo_id=vehiculo_id,
-        vendedor_id=vehiculo.vendedor_id,
-        metodo_pago=compra.metodo_pago,
-        codigo_transaccion=codigo,
-        monto=vehiculo.precio_clp
-    )
-    bd.add(nueva_compra)
-    vehiculo.estado_validacion = "vendido"
-    bd.commit()
-    bd.refresh(nueva_compra)
-    return {"mensaje": "Compra registrada exitosamente", "compra_id": nueva_compra.id, "codigo_transaccion": codigo}
-
-@app.get("/api/transacciones/ventas")
-def obtener_ventas(usuario: models.Usuario = Depends(obtener_usuario_desde_token), bd: Session = Depends(obtener_bd)):
-    if usuario.rol != "seller":
-        raise HTTPException(status_code=403, detail="Acceso denegado: Solo vendedores pueden ver sus ventas.")
-    ventas = bd.query(models.Compra).filter(models.Compra.vendedor_id == usuario.id).all()
-    return [serializar_compra(v) for v in ventas]
-
-class CrearCalificacion(BaseModel):
-    vendedor_id: str
-    puntaje: int
-    comentario: Optional[str] = None
-
-@app.post("/api/calificaciones")
-def crear_calificacion(calif: CrearCalificacion, usuario: models.Usuario = Depends(obtener_usuario_desde_token), bd: Session = Depends(obtener_bd)):
-    # Solo compradores pueden calificar vendedores
-    if usuario.rol != "buyer":
-        raise HTTPException(status_code=403, detail="Acceso denegado: Solo compradores pueden calificar.")
-    if not (1 <= calif.puntaje <= 5):
-        raise HTTPException(status_code=400, detail="Puntaje debe estar entre 1 y 5.")
-    # Crear registro de calificación
-    nueva_calif = models.Calificacion(
-        id=str(uuid.uuid4()),
-        puntaje=calif.puntaje,
-        comentario=calif.comentario,
-        autor_id=usuario.id,
-        objetivo_id=calif.vendedor_id,
-        tipo_objetivo="usuario"
-    )
-    bd.add(nueva_calif)
-    # Recalcular promedio del vendedor
-    vendedor = bd.query(models.Usuario).filter(models.Usuario.id == calif.vendedor_id).first()
-    if not vendedor:
-        raise HTTPException(status_code=404, detail="Vendedor no encontrado.")
-    total = bd.query(func.sum(models.Calificacion.puntaje)).filter(models.Calificacion.objetivo_id == calif.vendedor_id, models.Calificacion.tipo_objetivo == "usuario").scalar() or 0
-    count = bd.query(func.count(models.Calificacion.id)).filter(models.Calificacion.objetivo_id == calif.vendedor_id, models.Calificacion.tipo_objetivo == "usuario").scalar() or 1
-    vendedor.calificacion_promedio = float(total) / count
-    bd.commit()
-    bd.refresh(vendedor)
-    return {"mensaje": "Calificación registrada.", "promedio": vendedor.calificacion_promedio}
 
 if __name__ == "__main__":
     import uvicorn
-    print("Servidor MASTER API iniciado en http://localhost:8006")
-    uvicorn.run(app, host="0.0.0.0", port=8006)
+    print("Servidor MASTER API iniciado en http://localhost:8005")
+    uvicorn.run(app, host="0.0.0.0", port=8005)
