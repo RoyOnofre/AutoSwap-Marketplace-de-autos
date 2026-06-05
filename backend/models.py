@@ -223,6 +223,7 @@ class Vehiculo(Base):
     revisado_por = Column(String, ForeignKey("usuarios.id"), nullable=True)
     revisado_at = Column(DateTime, nullable=True)
     es_activo = Column(Boolean, nullable=False, default=True)
+    estado_venta = Column(String, default='disponible')
     creado_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     actualizado_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     eliminado_at = Column(DateTime, nullable=True)
@@ -267,6 +268,8 @@ class Compra(Base):
     codigo_transaccion = Column(String, unique=True, nullable=False)
     fecha = Column(DateTime, default=datetime.datetime.utcnow)
     monto = Column(Float, nullable=False)
+    estado = Column(String, default='pendiente_aceptacion')
+    motivo_rechazo = Column(String, nullable=True)  # Optional rejection reason
     # Relationships
     comprador = relationship("Usuario", foreign_keys=[comprador_id])
     vehiculo = relationship("Vehiculo", foreign_keys=[vehiculo_id])

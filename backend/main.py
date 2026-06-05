@@ -20,7 +20,7 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import models
 from database import SessionLocal, engine
-from routers import anuncios, ofertas, inspecciones
+from routers import anuncios, ofertas, inspecciones, transacciones
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -59,6 +59,9 @@ with engine.connect() as connection:
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS timezone VARCHAR DEFAULT '(GMT-04:00) La Paz';"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS two_factor BOOLEAN DEFAULT FALSE;"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS calificacion_promedio FLOAT DEFAULT 0.0;"))
+        connection.execute(text("ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS estado_venta VARCHAR DEFAULT 'disponible';"))
+        connection.execute(text("ALTER TABLE compras ADD COLUMN IF NOT EXISTS estado VARCHAR DEFAULT 'pendiente_aceptacion';"))
+        connection.execute(text("ALTER TABLE compras ADD COLUMN IF NOT EXISTS motivo_rechazo VARCHAR;"))
         connection.commit()
         print("[OK] Columna 'kyc_estado' verificada/agregada.")
     except Exception as e:
@@ -82,7 +85,7 @@ def registrar_auditoria(bd: Session, usuario_id: str, accion: str, descripcion: 
 app = FastAPI(title="TechStore Manager API Master - Español")
 app.include_router(anuncios.router)
 app.include_router(ofertas.router)
-app.include_router(inspecciones.router)
+app.include_router(transacciones.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -886,12 +889,57 @@ def aprobar_vehiculo(
 
 # Endpoint for processing vehicle purchase transaction
 # Duplicate purchase endpoint removed - original implementation retained above
-async def comprar_vehiculo(
+@app.post("/api/transacciones/comprar/{vehiculo_id}")
+async def comprar_vehiculo_endpoint(
     vehiculo_id: str,
     request: Request,
     comprador: models.Usuario = Depends(obtener_usuario_desde_token),
     bd: Session = Depends(obtener_bd)
 ):
+    """Endpoint wrapper for vehicle purchase initiation."""
+    return await comprar_vehiculo(vehiculo_id, request, comprador, bd)
+
+# Accept a pending purchase (seller validates sale)
+@app.post("/api/transacciones/{compra_id}/aceptar")
+async def aceptar_compra(
+    compra_id: str,
+    vendedor: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    compra = bd.query(models.Compra).filter(models.Compra.id == compra_id).first()
+    if not compra:
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
+    # Only the seller associated with the vehicle can accept
+    if venta := bd.query(models.Vehiculo).filter(models.Vehiculo.id == compra.vehiculo_id).first():
+        if venta.vendedor_id != vendedor.id and vendedor.rol != "admin":
+            raise HTTPException(status_code=403, detail="No autorizado para aceptar esta compra")
+        # Update states
+        compra.estado = "completado"
+        venta.estado_venta = "vendido"
+        bd.commit()
+        return {"mensaje": "Compra aceptada y vehículo marcado como vendido", "compra_id": compra.id}
+    raise HTTPException(status_code=400, detail="Vehículo asociado no encontrado")
+
+# Reject a pending purchase (seller declines sale)
+@app.post("/api/transacciones/{compra_id}/rechazar")
+async def rechazar_compra(
+    compra_id: str,
+    vendedor: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    compra = bd.query(models.Compra).filter(models.Compra.id == compra_id).first()
+    if not compra:
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
+    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == compra.vehiculo_id).first()
+    if not vehiculo:
+        raise HTTPException(status_code=400, detail="Vehículo asociado no encontrado")
+    if vehiculo.vendedor_id != vendedor.id and vendedor.rol != "admin":
+        raise HTTPException(status_code=403, detail="No autorizado para rechazar esta compra")
+    compra.estado = "rechazado"
+    vehiculo.estado_venta = "disponible"
+    bd.commit()
+    return {"mensaje": "Compra rechazada y vehículo disponible nuevamente", "compra_id": compra.id}
+
     """
     Process a vehicle purchase.
     Expects a JSON body with the selected payment method.
@@ -940,91 +988,25 @@ async def comprar_vehiculo(
         )
         bd.add(nueva_compra)
 
-        # Update vehicle status to sold
-        vehiculo.estado_validacion = "vendido"
+        # Update vehicle status to reserved
+        vehiculo.estado_venta = "reservado"
         bd.commit()
         bd.refresh(nueva_compra)
 
         return {
             "exito": True,
-            "mensaje": "¡Compra iniciada exitosamente! El vehículo ha cambiado a estado vendido.",
+            "mensaje": "¡Compra iniciada exitosamente! El vehículo ha sido reservado.",
             "compra_id": nueva_compra.id,
             "codigo_transaccion": codigo_transaccion,
-            "nuevo_estado_vehiculo": "vendido"
+            "nuevo_estado_vehiculo": "reservado"
         }
     except Exception as e:
         bd.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Error crítico en la base de datos de TechStore-Manager: {str(e)}")
-        # Duplicate endpoint removed - original implementation retained above
-        async def comprar_vehiculo(
-            vehiculo_id: str,
-            compra: models.Compra,  # placeholder for request body, will be replaced below
-            comprador: models.Usuario = Depends(obtener_usuario_desde_token),
-            bd: Session = Depends(obtener_bd)
-        ):
-            """
-            Process a vehicle purchase.
-            Expects a JSON body with the selected payment method.
-            """
-            # Validate role
-            if comprador.rol != "comprador":
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="Permisos insuficientes: Solo los usuarios con rol 'comprador' pueden adquirir vehículos.")
 
-            # Find active vehicle
-            vehiculo = bd.query(models.Vehiculo).filter(
-                models.Vehiculo.id == vehiculo_id,
-                models.Vehiculo.es_activo == True
-            ).first()
-            if not vehiculo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="El vehículo solicitado no existe o ya no se encuentra disponible en el catálogo.")
-            # Ensure vehicle is approved
-            if vehiculo.estado_validacion != "aprobado":
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                    detail="Operación inválida: El vehículo no cuenta con la aprobación del inspector.")
+        # Duplicate purchase block removed - previously caused indentation error and redundant logic.
 
-            # Validate payment method from request body
-            data = await request.json()
-            metodo_pago = data.get("metodo_pago")
-            if metodo_pago not in ["QR", "EFECTIVO", "BANCA_MOVIL", "DOLARES"]:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                    detail="Método de pago no válido. Use QR, EFECTIVO, BANCA_MOVIL o DOLARES.")
-
-            # Generate transaction code
-            prefijo_map = {"QR": "QR", "EFECTIVO": "EF", "BANCA_MOVIL": "BM", "DOLARES": "USD"}
-            prefijo = prefijo_map[metodo_pago]
-            timestamp = int(datetime.datetime.utcnow().timestamp())
-            codigo_transaccion = f"TX-{prefijo}-{timestamp}-{uuid.uuid4().hex[:8].upper()}"
-
-            try:
-                # Create purchase record
-                nueva_compra = models.Compra(
-                    comprador_id=comprador.id,
-                    vehiculo_id=vehiculo.id,
-                    vendedor_id=vehiculo.vendedor_id,
-                    metodo_pago=metodo_pago,
-                    codigo_transaccion=codigo_transaccion,
-                    monto=vehiculo.precio_clp,
-                    fecha=datetime.datetime.utcnow()
-                )
-                bd.add(nueva_compra)
-
-                # Update vehicle status to sold
-                vehiculo.estado_validacion = "vendido"
-                bd.commit()
-                bd.refresh(nueva_compra)
-
-                return {
-                    "exito": True,
-                    "mensaje": "¡Compra iniciada exitosamente! El vehículo ha cambiado a estado vendido.",
-                    "compra_id": nueva_compra.id,
-                    "codigo_transaccion": codigo_transaccion,
-                    "nuevo_estado_vehiculo": "vendido"
-                }
-            except Exception as e:
-                pass
     # Log error and continue
     print(f"Error processing purchase: {e}")
 

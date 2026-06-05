@@ -42,6 +42,8 @@ export type Screen =
   | 'product-detail' 
   | 'add-product' 
   | 'pos' 
+  | 'mis-compras' 
+  | 'ventas-pendientes' 
   | 'reports'
   | 'profile'
   | 'sales-history'
@@ -66,4 +68,12 @@ export interface Notification {
   time: string;
   type: 'info' | 'warning' | 'error' | 'success';
   read: boolean;
+export interface Compra {
+  id: string;
+  codigo_transaccion: string;
+  monto: number;
+  metodo_pago: string;
+  fecha: string;
+  estado: string;
+  nuevo_estado_vehiculo: string;
 }

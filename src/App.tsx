@@ -28,6 +28,9 @@ import { Screen, UserRole, Notification } from './types';
 import { MOCK_NOTIFICATIONS } from './constants';
 
 // Screens
+import UserManagementScreen from './screens/UserManagementScreen';
+import MisComprasScreen from './screens/MisComprasScreen';
+import VentasPendientesScreen from './screens/VentasPendientesScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import DashboardScreen from './screens/DashboardScreen';
@@ -40,7 +43,7 @@ import ReportsScreen from './screens/ReportsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SalesHistoryScreen from './screens/SalesHistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
-import UserManagementScreen from './screens/UserManagementScreen';
+
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -213,12 +216,16 @@ const App: React.FC = () => {
       case 'product-detail':
         return <ProductDetailScreen productId={selectedProductId || '1'} userRole={userRole} currentUser={currentUser} onBack={() => navigateTo('inventory')} />;
       case 'add-product':
-        return (
-          <ProtectedRoute allowedRoles={['admin', 'vendedor']} userRole={userRole} onAccessDenied={() => navigateTo('inventory')}>
-            <AddProductScreen onBack={() => navigateTo('inventory')} />
-          </ProtectedRoute>
-        );
-      case 'pos':
+          return (
+            <ProtectedRoute allowedRoles={['admin', 'vendedor']} userRole={userRole} onAccessDenied={() => navigateTo('inventory')}>
+              <AddProductScreen onBack={() => navigateTo('inventory')} />
+            </ProtectedRoute>
+          );
+        case 'mis-compras':
+          return <MisComprasScreen userRole={userRole} onBack={() => navigateTo('dashboard')} />;
+        case 'ventas-pendientes':
+          return <VentasPendientesScreen userRole={userRole} onBack={() => navigateTo('dashboard')} />;
+        case 'pos':
         return (
           <ProtectedRoute allowedRoles={['admin', 'comprador']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
             <POSScreen userRole={userRole} />
@@ -346,28 +353,38 @@ const App: React.FC = () => {
                 />
               )}
 
-              {(userRole === 'admin' || userRole === 'comprador') && (
-                <SidebarItem 
-                  icon={<ShoppingCart size={20} />} 
-                  label={userRole === 'comprador' ? 'Simular Compra / Escrow' : 'Punto de Venta (Escrow)'} 
-                  active={currentScreen === 'pos'} 
-                  onClick={() => navigateTo('pos')}
-                  roleColor={roleColor}
-                />
-              )}
 
+            {userRole === 'vendedor' && (
               <SidebarItem 
                 icon={<History size={20} />} 
+                label='Ventas Pendientes' 
+                active={currentScreen === 'ventas-pendientes'} 
+                onClick={() => navigateTo('ventas-pendientes')} 
+                roleColor={roleColor}
+              />
+            )}
+
+              <SidebarItem 
+                icon={<History size={20} />}
                 label={
-                  userRole === 'comprador' ? 'Mis Compras' : 
                   userRole === 'vendedor' ? 'Mis Ventas Realizadas' : 
                   userRole === 'inspector' ? 'Historial de Visitas' : 
                   'Historial de Ventas'
-                } 
-                active={currentScreen === 'sales-history'} 
+                }
+                active={currentScreen === 'sales-history'}
                 onClick={() => navigateTo('sales-history')}
                 roleColor={roleColor}
               />
+
+                {userRole === 'comprador' && (
+                  <SidebarItem
+                    icon={<History size={20} />}
+                    label='Mis Compras'
+                    active={currentScreen === 'mis-compras'}
+                    onClick={() => navigateTo('mis-compras')}
+                    roleColor={roleColor}
+                  />
+                )}
 
               {userRole === 'admin' && (
                 <SidebarItem 

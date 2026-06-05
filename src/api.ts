@@ -9,9 +9,23 @@ const getAuthHeaders = () => {
   };
 };
 
+export const comprarVehiculo = async (vehiculoId: string | number) => {
+  const res = await fetch(`${API_URL}/transacciones/comprar/${vehiculoId}`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  
+  if (!res.ok) {
+    throw new Error("Error al procesar la compra segura");
+  }
+  
+  return res.json();
+};
+
 export const api = {
   // ─────────────────────────────────────────
   // AUTENTICACIÓN VIA GATEWAY
+  comprarVehiculo: comprarVehiculo,
   // ─────────────────────────────────────────
   login: async (correo: string, contrasena: string) => {
     try {
@@ -75,9 +89,6 @@ export const api = {
     return res.json();
   },
 
-  // ─────────────────────────────────────────
-  // GESTIÓN DE USUARIOS (CRUD COMPLETO)
-  // ─────────────────────────────────────────
   getUsuarios: async (filtros?: { buscar?: string; rol?: string; estado?: string }) => {
     const params = new URLSearchParams();
     if (filtros?.buscar) params.append("buscar", filtros.buscar);
@@ -450,16 +461,28 @@ export const api = {
     }
     return res.json();
   },
-  // 🛒 NUEVO: FLUJO TRANSACCIONAL DE COMPRA
-  comprarVehiculo: async (vehiculoId: string, metodoPago: string = "QR") => {
-    const res = await fetch(`${API_URL}/transacciones/comprar/${vehiculoId}`, {
+  // Accept a pending purchase (seller validates sale)
+  aceptarCompra: async (compraId: string) => {
+    const res = await fetch(`${API_URL}/transacciones/${compraId}/aceptar`, {
       method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ metodo_pago: metodoPago })
+      headers: getAuthHeaders()
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
-      throw new Error(err?.detail || "Error al comprar vehículo");
+      throw new Error(err?.detail || `Error al aceptar la compra ${compraId}`);
+    }
+    return res.json();
+  },
+
+  // Reject a pending purchase (seller declines sale)
+  rechazarCompra: async (compraId: string) => {
+    const res = await fetch(`${API_URL}/transacciones/${compraId}/rechazar`, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || `Error al rechazar la compra ${compraId}`);
     }
     return res.json();
   },
