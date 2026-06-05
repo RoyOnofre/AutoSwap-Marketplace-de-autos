@@ -3,7 +3,7 @@ import { User as UserIcon, Mail, Phone, MapPin, Shield, Camera, Save, Lock, Bell
 import { MOCK_USERS } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole, User } from '../types';
-import { api } from '../api';
+import { api } from "../api.1";
 
 interface ProfileScreenProps {
   userRole: UserRole;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, User, Tag, Package, Printer, X, CheckCircle, Download } from 'lucide-react';
 import { RatingModal } from '../components/RatingModal';
-import { api } from '../api';
+import { api } from "../api.1";
 import { UserRole } from '../types';
 
 interface POSScreenProps {

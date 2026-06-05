@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../api';
+import { api } from "../api.1";
 import { toast } from 'react-hot-toast';
 import { X, CheckCircle, XCircle } from 'lucide-react';
 

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePublishStore } from '../store/usePublishStore';
-import { api } from '../api';
+import { api } from "../api.1";
 
 interface AddProductScreenProps {
   onBack: () => void;

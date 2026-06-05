@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download, MoreVertical, Eye, Calendar, ShoppingBag, CreditCard, User, TrendingUp, Star, RefreshCw } from 'lucide-react';
 import { MOCK_SALES } from '../constants';
 import { UserRole } from '../types';
-import { api } from '../api';
+import { api } from "../api.1";
 import { toast } from 'react-hot-toast';
 import { RatingModal } from '../components/RatingModal';
 

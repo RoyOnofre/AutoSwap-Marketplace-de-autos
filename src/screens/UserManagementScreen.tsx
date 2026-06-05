@@ -5,7 +5,7 @@ import {
   ShieldCheck, Eye, EyeOff, RefreshCw, AlertTriangle,
   CheckCircle2, Loader2, Download
 } from 'lucide-react';
-import { api } from '../api';
+import { api } from "../api.1";
 
 // ─── Tipos locales ────────────────────────────────────
 interface UsuarioAPI {

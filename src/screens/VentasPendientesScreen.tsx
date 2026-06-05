@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../api';
+import { api } from "../api.1";
 import { Compra } from '../types';
 
 const VentasPendientesScreen: React.FC<{ userRole: string; onBack: () => void }> = ({ onBack }) => {
@@ -13,7 +13,7 @@ const VentasPendientesScreen: React.FC<{ userRole: string; onBack: () => void }>
         const all = await api.getCompras();
         // Filter purchases where the vehicle belongs to current seller and status is pending acceptance
         const sellerId = localStorage.getItem('userId');
-        const filtered = all.filter((c: Compra) => c.estado === 'pendiente_aceptacion');
+        const filtered = all.filter((c: Compra) => c.estado === 'pendiente_aceptacion' && c.vendedor_id === sellerId);
         setCompras(filtered);
       } catch (e: any) {
         setError(e.message || 'Error al cargar ventas pendientes');
@@ -63,20 +63,18 @@ const VentasPendientesScreen: React.FC<{ userRole: string; onBack: () => void }>
             </tr>
           </thead>
           <tbody>
-              {compras.map((c: Compra) => {
-                return (
-                  <tr key={c.id} className="border-b">
-                    <td className="p-2 text-sm text-gray-800">{c.codigo_transaccion}</td>
-                    <td className="p-2 text-sm text-gray-800">{c.comprador_id}</td>
-                    <td className="p-2 text-sm text-gray-800">{c.monto.toLocaleString('es-CL')} CLP</td>
-                    <td className="p-2 text-sm text-gray-800">{c.metodo_pago}</td>
-                    <td className="p-2 space-x-2">
-                      <button onClick={() => handleAccept(c.id)} className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700">Aceptar Venta</button>
-                      <button onClick={() => handleReject(c.id)} className="px-3 py-1 bg-rose-600 text-white rounded hover:bg-rose-700">Rechazar</button>
-                    </td>
-                  </tr>
-                );
-              })}
+            {compras.map(c => (
+              <tr key={c.id} className="border-b">
+                <td className="p-2">{c.codigo_transaccion}</td>
+                <td className="p-2">{c.comprador_id}</td>
+                <td className="p-2">{c.monto.toLocaleString('es-CL')} CLP</td>
+                <td className="p-2">{c.metodo_pago}</td>
+                <td className="p-2 space-x-2">
+                  <button onClick={() => handleAccept(c.id)} className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700">Aceptar</button>
+                  <button onClick={() => handleReject(c.id)} className="px-3 py-1 bg-rose-600 text-white rounded hover:bg-rose-700">Rechazar</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Mail, Lock, ArrowLeft, CheckCircle2, ShieldCheck, UserCheck } from 'lucide-react';
 import { motion } from 'motion/react';
-import { api } from '../api';
+import { api } from "../api.1";
 
 interface RegisterScreenProps {
   onBack: () => void;
