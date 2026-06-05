@@ -9,23 +9,9 @@ const getAuthHeaders = () => {
   };
 };
 
-export const comprarVehiculo = async (vehiculoId: string | number) => {
-  const res = await fetch(`${API_URL}/transacciones/comprar/${vehiculoId}`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-  });
-  
-  if (!res.ok) {
-    throw new Error("Error al procesar la compra segura");
-  }
-  
-  return res.json();
-};
-
 export const api = {
   // ─────────────────────────────────────────
   // AUTENTICACIÓN VIA GATEWAY
-  comprarVehiculo: comprarVehiculo,
   // ─────────────────────────────────────────
   login: async (correo: string, contrasena: string) => {
     try {
@@ -89,6 +75,9 @@ export const api = {
     return res.json();
   },
 
+  // ─────────────────────────────────────────
+  // GESTIÓN DE USUARIOS (CRUD COMPLETO)
+  // ─────────────────────────────────────────
   getUsuarios: async (filtros?: { buscar?: string; rol?: string; estado?: string }) => {
     const params = new URLSearchParams();
     if (filtros?.buscar) params.append("buscar", filtros.buscar);
@@ -483,6 +472,17 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => null);
       throw new Error(err?.detail || `Error al rechazar la compra ${compraId}`);
+    }
+    return res.json();
+  },
+    const res = await fetch(`${API_URL}/transacciones/comprar/${vehiculoId}`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ metodo_pago: metodoPago })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error al comprar vehículo");
     }
     return res.json();
   },
