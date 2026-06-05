@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Star, MessageSquare } from 'lucide-react';
-import { api } from "../api.1";
+import { api } from "../api";
 import { toast } from 'react-hot-toast';
 
 interface RatingModalProps {

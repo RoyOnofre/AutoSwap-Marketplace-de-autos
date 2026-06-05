@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, AlertTriangle, TrendingUp, DollarSign, Search, Filter, MoreHorizontal, Eye, CheckCircle } from 'lucide-react';
 
-import { api } from "../api.1";
+import { api } from "../api";
 import { UserRole, Product } from '../types';
 
 interface InventoryScreenProps {

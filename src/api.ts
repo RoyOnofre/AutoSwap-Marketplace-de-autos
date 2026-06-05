@@ -478,7 +478,7 @@ comprarVehiculo: async (vehiculoId: string | number, metodoPago: string) => {
   return res.json();
 },
 
-  },
+
 
   // 🕵️‍♂️ NUEVO: COLA DE VALIDACIÓN PARA EL INSPECTOR
   obtenerColaAprobacion: async () => {

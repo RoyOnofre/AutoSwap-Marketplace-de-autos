@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api } from "../api.1";
+import { api } from "../api";
 import { toast } from 'react-hot-toast';
 import PaymentSelector from './PaymentSelector';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from "../api.1";
+import { api } from "../api";
 import { FeaturedBanner } from '../components/FeaturedBanner';
 import { toast } from 'react-hot-toast';
 

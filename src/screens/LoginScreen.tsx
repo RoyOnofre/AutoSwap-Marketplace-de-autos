@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, Car, UserCheck, ShieldCheck, ClipboardCheck, X, CheckCircle2, Eye, EyeOff, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole } from '../types';
-import { api } from "../api.1";
+import { api } from "../api";
 
 interface LoginScreenProps {
   onLogin: (role: UserRole, userData?: any) => void;

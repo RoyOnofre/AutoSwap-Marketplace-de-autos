@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from "../api.1";
+import { api } from "../api";
 import { Compra } from '../types';
 
 const MisComprasScreen: React.FC<{ userRole: string; onBack: () => void }> = ({ onBack }) => {
