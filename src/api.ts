@@ -477,16 +477,7 @@ comprarVehiculo: async (vehiculoId: string | number, metodoPago: string) => {
   }
   return res.json();
 },
-    const res = await fetch(`${API_URL}/transacciones/comprar/${vehiculoId}`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ metodo_pago: metodoPago })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.detail || "Error al comprar vehículo");
-    }
-    return res.json();
+
   },
 
   // 🕵️‍♂️ NUEVO: COLA DE VALIDACIÓN PARA EL INSPECTOR
