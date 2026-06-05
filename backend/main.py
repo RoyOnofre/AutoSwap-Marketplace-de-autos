@@ -58,7 +58,7 @@ with engine.connect() as connection:
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS language VARCHAR DEFAULT 'Español (Bolivia)';"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS timezone VARCHAR DEFAULT '(GMT-04:00) La Paz';"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS two_factor BOOLEAN DEFAULT FALSE;"))
-        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR;"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS calificacion_promedio FLOAT DEFAULT 0.0;"))
         connection.commit()
         print("[OK] Columna 'kyc_estado' verificada/agregada.")
     except Exception as e:
@@ -1030,10 +1030,10 @@ async def comprar_vehiculo(
 
 # Endpoint for inspector approval queue
 @app.get("/api/vehiculos/cola-aprobacion", status_code=status.HTTP_200_OK)
-        def listar_cola_aprobacion(
-            inspector: models.Usuario = Depends(obtener_usuario_desde_token),
-            bd: Session = Depends(obtener_bd)
-        ):
+def listar_cola_aprobacion(
+    inspector: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
             """
             Returns list of vehicles pending approval for inspector.
             """
