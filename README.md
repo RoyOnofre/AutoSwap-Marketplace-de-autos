@@ -8,7 +8,7 @@ Universitario (a):
 
 <p>3.-Onofre  Alanoca Roy<p>
 
-Carrera: Ing. Sistemas. 
+Carrera: Ing. de Sistemas. 
 Materia: SIS324 – INGINIERIA DE SOFWARE
 <p>Grupo: 17<p>
 <p>Fecha: 22/05/2026<p>
