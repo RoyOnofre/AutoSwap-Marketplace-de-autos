@@ -4,6 +4,7 @@ import React from 'react';
 import { Star, ShieldCheck, MapPin, Calendar, Gauge } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { VehicleListing } from '../types';
+import { getDashboardUrl } from '../utils/navigation';
 
 export default function FeaturedListings() {
   const listings: VehicleListing[] = [
@@ -82,7 +83,7 @@ export default function FeaturedListings() {
             </p>
           </div>
           <a 
-            href="http://localhost:3000/#inventory" 
+            href={`${getDashboardUrl()}/#inventory`} 
             className="text-xs font-black text-slate-900 uppercase tracking-wider hover:text-emerald-500 transition-colors shrink-0 flex items-center gap-1.5"
           >
             Ver Todo el Inventario ➔
@@ -148,7 +149,7 @@ export default function FeaturedListings() {
                     </p>
                   </div>
                   <a 
-                    href={`http://localhost:3000/#product-detail?id=${item.id}`} 
+                    href={`${getDashboardUrl()}/#product-detail?id=${item.id}`} 
                     className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-emerald-500 hover:text-slate-950 transition-colors shadow-sm active:scale-95 duration-150"
                   >
                     <ShieldCheck size={16} />

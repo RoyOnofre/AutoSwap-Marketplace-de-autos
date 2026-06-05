@@ -43,17 +43,35 @@ import ReportsScreen from './screens/ReportsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SalesHistoryScreen from './screens/SalesHistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
-import LandingScreen from './screens/LandingScreen';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
+const parseHash = () => {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash.substring(1);
+  if (!hash) return null;
+  const [route, queryString] = hash.split('?');
+  const params = new URLSearchParams(queryString || '');
+  return {
+    route: route as Screen,
+    params
+  };
+};
+
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>(() => {
+    const parsed = parseHash();
+    if (parsed && ['login', 'register'].includes(parsed.route)) {
+      return parsed.route;
+    }
     const saved = localStorage.getItem('currentScreen');
     if (localStorage.getItem('isLoggedIn') === 'true') {
+      if (parsed && parsed.route) {
+        return parsed.route;
+      }
       return (saved as Screen) || 'dashboard';
     }
-    return 'landing';
+    return 'login';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -95,23 +113,52 @@ const App: React.FC = () => {
   React.useEffect(() => {
     localStorage.setItem('currentScreen', currentScreen);
     localStorage.setItem('userRole', userRole);
-    // Sync URL hash with current screen
-    window.location.hash = `#${currentScreen}`;
+    
+    const parsed = parseHash();
+    if (!parsed || parsed.route !== currentScreen) {
+      if (!['login', 'register'].includes(currentScreen)) {
+        if (currentScreen === 'product-detail' && selectedProductId) {
+          window.location.hash = `${currentScreen}?id=${selectedProductId}`;
+        } else {
+          window.location.hash = currentScreen;
+        }
+      } else {
+        window.location.hash = currentScreen;
+      }
+    }
+  }, [currentScreen, userRole, selectedProductId]);
 
-  }, [currentScreen, userRole]);
-
-  // Escuchar cambios en el hash (Botón Atrás del navegador)
+  // Escuchar cambios en el hash (Botón Atrás del navegador y Deep Links)
   React.useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '') as Screen;
-      if (hash && hash !== currentScreen) {
-        setCurrentScreen(hash);
+      const parsed = parseHash();
+      if (!parsed) return;
+      
+      const { route, params } = parsed;
+      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+      
+      if (route) {
+        if (['login', 'register'].includes(route) || isLoggedIn) {
+          setCurrentScreen(route);
+          const productId = params.get('id');
+          if (productId) {
+            setSelectedProductId(productId);
+          }
+        }
       }
     };
 
+    const parsed = parseHash();
+    if (parsed) {
+      const productId = parsed.params.get('id');
+      if (productId) {
+        setSelectedProductId(productId);
+      }
+    }
+
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [currentScreen]);
+  }, []);
 
   const navigateTo = (screen: Screen, productId?: string) => {
     if (productId) setSelectedProductId(productId);
@@ -196,7 +243,6 @@ const App: React.FC = () => {
     'hover:text-violet-500';
 
   const renderScreen = () => {
-
     switch (currentScreen) {
       case 'login':
         return <LoginScreen onLogin={handleLogin} onRegister={() => navigateTo('register')} />;
@@ -256,9 +302,7 @@ const App: React.FC = () => {
             <UserManagementScreen />
           </ProtectedRoute>
         );
-      case 'landing':
-          return <LandingScreen />;
-        default:
+      default:
         return <DashboardScreen userRole={userRole} onNavigate={navigateTo} />;
     }
   };

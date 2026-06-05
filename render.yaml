@@ -6,6 +6,7 @@ services:
     name: AutoSwap-Marketplace-de-Autos
     env: python
     plan: free
+    rootDir: backend
     # FastAPI backend – install dependencies and start the server
     buildCommand: |
       pip install -r requirements.txt
@@ -21,8 +22,8 @@ services:
     name: autoswap-frontend
     env: node
     plan: free
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
+    buildCommand: bash build-all.sh
+    staticPublishPath: landing/out
     envVars:
       - key: VITE_API_URL
         sync: false

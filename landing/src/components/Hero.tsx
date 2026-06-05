@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getDashboardUrl } from '../utils/navigation';
 
 export default function Hero() {
   const [marca, setMarca] = useState('');
@@ -15,7 +16,7 @@ export default function Hero() {
     const query = new URLSearchParams();
     if (marca) query.append('marca', marca);
     if (modelo) query.append('modelo', modelo);
-    window.location.href = `http://localhost:3000/#inventory?${query.toString()}`;
+    window.location.href = `${getDashboardUrl()}/#inventory?${query.toString()}`;
   };
 
   return (

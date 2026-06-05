@@ -7,7 +7,7 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, '.', '');
 const isBuild = command === 'build';
   return {
-   base: '/',   // ← condicional
+    base: env.VITE_BASE_PATH || (process.env.RENDER ? '/app/' : '/'),
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { getDashboardUrl } from '../utils/navigation';
 
 export default function CTA() {
   return (
@@ -24,7 +25,7 @@ export default function CTA() {
           Únete a la comunidad de AutoSwap y descubre un proceso seguro, rápido y sin sorpresas.
         </motion.p>
         <motion.a
-          href="http://localhost:3000/#login"
+          href={`${getDashboardUrl()}/#login`}
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.4 }}
