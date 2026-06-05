@@ -44,19 +44,9 @@ export default function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-4">
-          <a 
-            href="http://localhost:3000/#login" 
-            className="text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors px-4 py-2"
-          >
-            Iniciar Sesión
-          </a>
-          <a 
-            href="http://localhost:3000/#add-product" 
-            className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-black px-5 py-3 rounded-xl transition-all shadow-md shadow-slate-900/10 hover:shadow-lg hover:shadow-slate-900/20 active:scale-95 uppercase tracking-wider"
-          >
-            Publicar Auto
-          </a>
-        </div>
+           <a href="#login" className="text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors px-4 py-2">Iniciar Sesión</a>
+           <a href="#add-product" className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-black px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 uppercase tracking-wider">Publicar Auto</a>
+         </div>
 
         {/* Mobile menu button */}
         <button 
@@ -102,13 +92,13 @@ export default function Navbar() {
           </div>
           <div className="pt-6 border-t border-slate-100 flex flex-col gap-4">
             <a 
-              href="http://localhost:3000/#login" 
+              href="#login" 
               className="text-center font-bold text-slate-700 hover:text-slate-900 py-2.5 rounded-xl border border-slate-200 transition-colors"
             >
               Iniciar Sesión
             </a>
             <a 
-              href="http://localhost:3000/#add-product" 
+              href="#add-product" 
               className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-xl text-center transition-all uppercase tracking-wider text-xs shadow-md"
             >
               Publicar Auto

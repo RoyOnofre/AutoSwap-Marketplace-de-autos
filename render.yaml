@@ -1,0 +1,28 @@
+# render.yaml – defines both the FastAPI backend and the Vite/React static site
+
+services:
+  # ---------- Backend ----------
+  - type: web
+    name: AutoSwap-Marketplace-de-Autos
+    env: python
+    plan: free
+    # FastAPI backend – install dependencies and start the server
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: SUPABASE_DATABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+  # ---------- Frontend ----------
+  - type: static
+    name: autoswap-frontend
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false

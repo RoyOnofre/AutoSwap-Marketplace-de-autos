@@ -43,6 +43,7 @@ import ReportsScreen from './screens/ReportsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SalesHistoryScreen from './screens/SalesHistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import LandingScreen from './screens/LandingScreen';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -52,7 +53,7 @@ const App: React.FC = () => {
     if (localStorage.getItem('isLoggedIn') === 'true') {
       return (saved as Screen) || 'dashboard';
     }
-    return 'login';
+    return 'landing';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -94,19 +95,16 @@ const App: React.FC = () => {
   React.useEffect(() => {
     localStorage.setItem('currentScreen', currentScreen);
     localStorage.setItem('userRole', userRole);
-    // Actualizar el hash de la URL para que funcione el botón "Atrás"
-    if (!['login', 'register'].includes(currentScreen)) {
-      window.location.hash = currentScreen;
-    } else {
-      window.location.hash = '';
-    }
+    // Sync URL hash with current screen
+    window.location.hash = `#${currentScreen}`;
+
   }, [currentScreen, userRole]);
 
   // Escuchar cambios en el hash (Botón Atrás del navegador)
   React.useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as Screen;
-      if (hash && hash !== currentScreen && localStorage.getItem('isLoggedIn') === 'true') {
+      if (hash && hash !== currentScreen) {
         setCurrentScreen(hash);
       }
     };
@@ -198,6 +196,7 @@ const App: React.FC = () => {
     'hover:text-violet-500';
 
   const renderScreen = () => {
+
     switch (currentScreen) {
       case 'login':
         return <LoginScreen onLogin={handleLogin} onRegister={() => navigateTo('register')} />;
@@ -257,7 +256,9 @@ const App: React.FC = () => {
             <UserManagementScreen />
           </ProtectedRoute>
         );
-      default:
+      case 'landing':
+          return <LandingScreen />;
+        default:
         return <DashboardScreen userRole={userRole} onNavigate={navigateTo} />;
     }
   };
