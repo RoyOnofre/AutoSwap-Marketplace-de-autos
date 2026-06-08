@@ -6,11 +6,9 @@ services:
     name: AutoSwap-Marketplace-de-Autos
     env: python
     plan: free
-    rootDir: backend
     # FastAPI backend – install dependencies and start the server
-    buildCommand: |
-      pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: SUPABASE_DATABASE_URL
         sync: false
