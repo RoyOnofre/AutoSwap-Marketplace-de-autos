@@ -6,9 +6,10 @@ services:
     name: AutoSwap-Marketplace-de-Autos
     env: python
     plan: free
-    # FastAPI backend – install dependencies and start the server
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
+    # Instalamos python-dotenv explícitamente antes de los requerimientos
+    buildCommand: pip install python-dotenv && pip install -r backend/requirements.txt
+    # Dejamos que Uvicorn escuche el puerto dinámico que le asigne Render
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_DATABASE_URL
         sync: false
