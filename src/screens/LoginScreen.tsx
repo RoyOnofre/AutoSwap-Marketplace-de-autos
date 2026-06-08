@@ -131,7 +131,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister }) => {
 {/* Back button with date */}
 <button
   onClick={() => window.history.back()}
-  className="absolute top-4 left-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-md shadow-lg z-20 transition"
+  className="absolute top-4 left-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-md shadow-lg z-20 transition"
 >
   ← Volver atras
 </button>
