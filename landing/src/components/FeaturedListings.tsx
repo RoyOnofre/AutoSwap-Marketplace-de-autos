@@ -72,7 +72,7 @@ export default function FeaturedListings() {
         {/* Section Title */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-4 text-left">
-            <span className="text-xs font-black tracking-widest text-emerald-500 uppercase">
+            <span className="text-xs font-black tracking-widest text-orange-500 uppercase">
               Catálogo Seleccionado
             </span>
             <h2 className="text-3xl md:text-4xl font-black text-slate-900 uppercase tracking-tight">
@@ -84,7 +84,7 @@ export default function FeaturedListings() {
           </div>
           <a 
             href={`${getDashboardUrl()}/#inventory`} 
-            className="text-xs font-black text-slate-900 uppercase tracking-wider hover:text-emerald-500 transition-colors shrink-0 flex items-center gap-1.5"
+            className="text-xs font-black text-slate-900 uppercase tracking-wider hover:text-orange-500 transition-colors shrink-0 flex items-center gap-1.5"
           >
             Ver Todo el Inventario ➔
           </a>
@@ -112,7 +112,7 @@ export default function FeaturedListings() {
                 {/* Badges */}
                 <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
                   {item.estado_validacion === 'aprobado' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-full text-[9px] font-black uppercase tracking-wider shadow-md">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-slate-950 rounded-full text-[9px] font-black uppercase tracking-wider shadow-md">
                       <ShieldCheck size={12} /> Inspección Aprobada
                     </span>
                   )}
@@ -150,7 +150,7 @@ export default function FeaturedListings() {
                   </div>
                   <a 
                     href={`${getDashboardUrl()}/#product-detail?id=${item.id}`} 
-                    className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-emerald-500 hover:text-slate-950 transition-colors shadow-sm active:scale-95 duration-150"
+                    className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-orange-500 hover:text-slate-950 transition-colors shadow-sm active:scale-95 duration-150"
                   >
                     <ShieldCheck size={16} />
                   </a>

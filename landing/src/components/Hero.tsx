@@ -39,12 +39,12 @@ export default function Hero() {
           transition={{ duration: 0.6 }}
           className="space-y-4 max-w-3xl"
         >
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-black uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-full text-xs font-black uppercase tracking-wider">
             ★ Garantía Escrow & KYC Activos
           </span>
           <h1 className="text-4xl md:text-6xl font-black text-white leading-tight uppercase tracking-tight">
-            La nueva era del <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-455 via-emerald-400 to-teal-400">
+            La nueva era de<br />
+            <span className="text-4xl md:text-6xl font-black text-white leading-tight uppercase tracking-tight">
               intercambio de autos
             </span> <br />
             en Bolivia
@@ -68,7 +68,7 @@ export default function Hero() {
             <select 
               value={marca} 
               onChange={(e) => setMarca(e.target.value)}
-              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl px-4 py-3 text-white text-xs font-bold focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl px-4 py-3 text-white text-xs font-bold focus:outline-none focus:border-orange-500 transition-colors"
             >
               <option value="" className="bg-slate-900 text-white">Todas las marcas</option>
               <option value="Toyota" className="bg-slate-900 text-white">Toyota</option>
@@ -86,7 +86,7 @@ export default function Hero() {
               placeholder="Ej. Land Cruiser, Jimny..." 
               value={modelo} 
               onChange={(e) => setModelo(e.target.value)}
-              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl px-4 py-3.5 text-white text-xs font-bold placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl px-4 py-3.5 text-white text-xs font-bold placeholder:text-slate-500 focus:outline-none focus:border-orange-500transition-colors"
             />
           </div>
 
@@ -96,7 +96,7 @@ export default function Hero() {
             <select 
               value={precio} 
               onChange={(e) => setPrecio(e.target.value)}
-              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl px-4 py-3 text-white text-xs font-bold focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl px-4 py-3 text-white text-xs font-bold focus:outline-none focus:border-orange-500 transition-colors"
             >
               <option value="" className="bg-slate-900 text-white">Cualquier precio</option>
               <option value="bajo" className="bg-slate-900 text-white">Menos de Bs. 80,000</option>
@@ -108,7 +108,7 @@ export default function Hero() {
           {/* Search Button */}
           <button 
             type="submit"
-            className="w-full md:w-auto self-end bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-black px-8 py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 uppercase tracking-wider text-xs"
+            className="w-full md:w-auto self-end bg-orange-500 hover:bg-orange-450 text-slate-950 font-black px-8 py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-orange-500/20 uppercase tracking-wider text-xs"
           >
             <Search size={16} />
             Buscar

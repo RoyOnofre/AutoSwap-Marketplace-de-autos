@@ -28,7 +28,7 @@ export default function Features() {
       <div className="max-w-7xl mx-auto px-6 space-y-16">
         {/* Section Header */}
         <div className="text-center space-y-4 max-w-2xl mx-auto">
-          <span className="text-xs font-black tracking-widest text-emerald-500 uppercase">
+          <span className="text-xs font-black tracking-widest text-orange-500 uppercase">
             El Estándar AutoSwap
           </span>
           <h2 className="text-3xl md:text-4xl font-black text-slate-900 uppercase tracking-tight">
@@ -51,7 +51,7 @@ export default function Features() {
               className="bg-white border border-slate-100 p-8 rounded-[32px] shadow-sm hover:shadow-md hover:border-slate-200 transition-all space-y-6 flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-slate-900 text-emerald-400 flex items-center justify-center shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-sm">
                   {p.icon}
                 </div>
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
@@ -62,7 +62,7 @@ export default function Features() {
                 </p>
               </div>
               <div className="pt-4 border-t border-slate-50">
-                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
+                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
                   Estándar AutoSwap Activo
                 </span>
               </div>

@@ -6,17 +6,17 @@ import { ShieldCheck, Zap, Handshake } from 'lucide-react';
 export default function Benefits() {
   const benefits = [
     {
-      icon: <ShieldCheck size={32} className="text-emerald-500" />,
+      icon: <ShieldCheck size={32} className="text-orange-500" />,
       title: 'Inspección Certificada',
       description: 'Cada vehículo supera una inspección técnica rigurosa para garantizar su estado y seguridad.',
     },
     {
-      icon: <Zap size={32} className="text-amber-500" />,
+      icon: <Zap size={32} className="text-orange-500" />,
       title: 'Pagos Escrow',
       description: 'Los fondos se liberan solo cuando ambas partes confirman la entrega satisfactoria.',
     },
     {
-      icon: <Handshake size={32} className="text-indigo-500" />,
+      icon: <Handshake size={32} className="text-orange-500" />,
       title: 'KYC y Seguridad',
       description: 'Verificación de identidad para crear un entorno confiable y libre de fraudes.',
     },
@@ -43,7 +43,7 @@ export default function Benefits() {
               className="bg-slate-800/60 backdrop-blur-md rounded-2xl p-6 text-center border border-slate-700"
             >
               <div className="flex justify-center mb-4">{b.icon}</div>
-              <h3 className="text-xl font-semibold text-emerald-400 mb-2">{b.title}</h3>
+              <h3 className="text-xl font-semibold text-orange-500 mb-2">{b.title}</h3>
               <p className="text-sm text-slate-300 leading-relaxed">{b.description}</p>
             </motion.div>
           ))}

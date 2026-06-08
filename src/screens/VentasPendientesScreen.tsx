@@ -47,7 +47,6 @@ const VentasPendientesScreen: React.FC<{ userRole: string; onBack: () => void }>
 
   return (
     <div className="p-6 space-y-4">
-      <button onClick={onBack} className="text-blue-500 hover:underline mb-4">← Volver</button>
       <h2 className="text-2xl font-bold">Ventas Pendientes</h2>
       {compras.length === 0 ? (
         <p>No hay compras pendientes de aceptación.</p>
