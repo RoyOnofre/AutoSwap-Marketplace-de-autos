@@ -18,9 +18,9 @@ services:
         sync: false
 
   # ---------- Frontend ----------
-  - type: static
+  - type: web
     name: autoswap-frontend
-    env: node
+    env: static
     plan: free
     buildCommand: bash build-all.sh
     staticPublishPath: landing/out
