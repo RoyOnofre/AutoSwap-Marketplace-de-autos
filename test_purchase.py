@@ -1,6 +1,6 @@
 import requests, json, os
 
-BASE_URL = os.getenv('VITE_API_URL') or 'http://localhost:8005/api'
+BASE_URL = os.getenv('VITE_API_URL') or 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/api'
 
 def login(correo, contrasena):
     resp = requests.post(f"{BASE_URL}/auth/login", json={"correo": correo, "contrasena": contrasena})
