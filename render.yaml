@@ -19,7 +19,6 @@ services:
   - type: web
     name: autoswap-frontend
     env: static
-    plan: free
     buildCommand: bash build-all.sh
     staticPublishPath: landing/out
     envVars:
