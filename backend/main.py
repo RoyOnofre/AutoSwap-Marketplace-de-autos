@@ -1138,6 +1138,6 @@ def listar_cola_aprobacion(
 
 if __name__ == "__main__":
     import uvicorn
-    print("Servidor MASTER API iniciado en http://localhost:8005")
-    uvicorn.run(app, host="0.0.0.0", port=8005)
+    print("Servidor MASTER API iniciado en https://autoswap-marketplace-de-autos-rxb0.onrender.com/api")
+    uvicorn.run(app, host="0.0.0.0", port=443)
     

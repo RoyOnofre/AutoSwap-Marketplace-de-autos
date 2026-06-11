@@ -1,5 +1,5 @@
-const API_URL = process.env.VITE_API_URL || `http://localhost:${process.env.VITE_BACKEND_PORT || 8005}/api`;
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || process.env.VITE_GATEWAY_URL || "http://localhost:3001/v1";
+const API_URL = import.meta.env.VITE_API_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com';
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/v1';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || '';
