@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User as UserIcon, Mail, Phone, MapPin, Shield, Camera, Save, Lock, Bell, Globe, CheckCircle2, FileText, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
-import { MOCK_USERS } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole, User } from '../types';
 import { api } from "../api";
@@ -143,6 +142,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userRole, currentUser }) 
         correo: user.email,
         avatar: user.avatar,
         bio: bio,
+        telefono: user.phone,
+        ubicacion: user.address,
+        biografia: bio,
         language: language,
         timezone: timezone,
         two_factor: twoFactor,

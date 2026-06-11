@@ -7,6 +7,9 @@ export interface Product {
   stock: number;
   image: string;
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  sellerName?: string;
+  sellerPhone?: string;
+  sellerZona?: string;
 }
 
 export type UserRole = 'admin' | 'vendedor' | 'comprador' | 'inspector';
@@ -49,7 +52,8 @@ export type Screen =
   | 'sales-history'
   | 'settings'
   | 'user-management'
-  | 'inspector';
+  | 'inspector'
+  | 'mis-publicaciones';
 
 export interface Sale {
   id: string;
@@ -68,6 +72,8 @@ export interface Notification {
   time: string;
   type: 'info' | 'warning' | 'error' | 'success';
   read: boolean;
+}
+
 export interface Compra {
   id: string;
   codigo_transaccion: string;
@@ -76,4 +82,24 @@ export interface Compra {
   fecha: string;
   estado: string;
   nuevo_estado_vehiculo: string;
+  vendedor_id?: string;
+  comprador_id?: string;
+  vehiculo?: {
+    id: string;
+    titulo: string;
+    marca: string;
+    modelo: string;
+    anio: number;
+    precio_clp: number;
+  };
+  comprador?: {
+    id: string;
+    nombre: string;
+    correo: string;
+  };
+  vendedor?: {
+    id: string;
+    nombre: string;
+    correo: string;
+  };
 }

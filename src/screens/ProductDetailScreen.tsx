@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, CheckCircle, XCircle, ShieldCheck, HelpCircle, 
-  MapPin, Calendar, Gauge, Key, Fuel, Hash, User, RefreshCw, 
+  MapPin, Calendar, Gauge, Key, Fuel, Hash, User, Phone, RefreshCw, 
   FileText, Shield, ArrowRight, Sparkles, CheckSquare, AlertCircle, Star
 } from 'lucide-react';
 import { api } from "../api";
@@ -40,8 +40,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
   const fetchVehicleDetails = async () => {
     try {
       setLoading(true);
-      const list = await api.getVehiculos();
-      const found = list.find((v: any) => v.id === productId);
+      const found = await api.getVehiculoDetail(productId);
       if (found) {
         setVehicle(found);
         if (found.vendedor_id) {
@@ -54,7 +53,24 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
         }
       }
     } catch (error) {
-      console.error("Error cargando detalles del vehículo:", error);
+      console.error("Error cargando detalles del vehículo por ID, usando fallback:", error);
+      try {
+        const list = await api.getVehiculos();
+        const found = list.find((v: any) => v.id === productId);
+        if (found) {
+          setVehicle(found);
+          if (found.vendedor_id) {
+            try {
+              const sellerProfile = await api.obtenerPerfil(found.vendedor_id);
+              setSeller(sellerProfile);
+            } catch (err) {
+              console.error("Error al obtener perfil del vendedor en fallback:", err);
+            }
+          }
+        }
+      } catch (fallbackErr) {
+        console.error("Error en fallback cargando detalles del vehículo:", fallbackErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -75,10 +91,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
     setValidationError('');
     try {
       if (accion === 'aprobado') {
-        await api.aprobarVehiculo(productId);
+        await api.validarVehiculo(productId, 'aprobado');
       } else {
-        // Rechazo: currently not supported by API; placeholder for future implementation
-        throw new Error('Rechazo de vehículo no está implementado en la API');
+        await api.validarVehiculo(productId, 'rechazado', rejectionReason.trim());
       }
       setValidationSuccess(`Vehículo ${accion === 'aprobado' ? 'aprobado' : 'rechazado'} exitosamente.`);
       setRejectionReason('');
@@ -109,7 +124,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
       await new Promise(resolve => setTimeout(resolve, 1000));
       setPurchaseStep(4); // Éxito
       
-      setVehicle((prev: any) => prev ? { ...prev, estado_validacion: 'vendido' } : null);
+      setVehicle((prev: any) => prev ? { ...prev, estado_venta: 'vendido' } : null);
       toast.success('¡Compra registrada exitosamente!');
     } catch (err: any) {
       console.error("Error al procesar la compra:", err);
@@ -152,9 +167,16 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
   const isApproved = vehicle.estado_validacion === 'aprobado';
   const isPending = vehicle.estado_validacion === 'pendiente';
   const isRejected = vehicle.estado_validacion === 'rechazado';
+  const isSold = vehicle.estado_venta === 'vendido';
 
   const canValidate = userRole === 'admin' || userRole === 'inspector';
   const canBuy = userRole === 'comprador';
+
+  const sellerName = vehicle.vendedor_nombre || seller?.name || 'Desconocido';
+  const sellerPhone = vehicle.vendedor_celular || seller?.phone || 'N/A';
+  const sellerZona = vehicle.vendedor_zona || seller?.address || 'N/A';
+  const sellerAvatar = seller?.avatar || null;
+  const sellerInitials = (sellerName || 'V').split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -170,21 +192,23 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
 
         {/* Validation Status Badge */}
         <div>
-          {isApproved && (
+          {isSold ? (
+            <span className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-black uppercase tracking-wider">
+              <CheckCircle size={14} /> Vendido
+            </span>
+          ) : isApproved ? (
             <span className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-black uppercase tracking-wider">
               <CheckCircle size={14} /> Certificado & Activo
             </span>
-          )}
-          {isPending && (
+          ) : isPending ? (
             <span className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-black uppercase tracking-wider">
               <RefreshCw size={14} className="animate-spin" /> Pendiente de Revisión
             </span>
-          )}
-          {isRejected && (
+          ) : isRejected ? (
             <span className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-full text-xs font-black uppercase tracking-wider">
               <XCircle size={14} /> Rechazado
             </span>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -248,6 +272,22 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
                 <SpecItem icon={<MapPin size={16} />} label="Ubicación" value={`${vehicle.ciudad}, ${vehicle.region}`} />
               </div>
             </div>
+{/* Seller Contact */}
+<div className="border-t border-slate-850 pt-4 mt-4">
+  <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2">Información de Contacto del Vendedor</h3>
+  <div className="flex items-center gap-3 mt-1">
+    <User className="text-primary" size={16} />
+    <span className="text-xs text-slate-400">{sellerName}</span>
+  </div>
+  <div className="flex items-center gap-3 mt-1">
+    <Phone className="text-primary" size={16} />
+    <span className="text-xs text-slate-400">{sellerPhone}</span>
+  </div>
+  <div className="flex items-center gap-3 mt-1">
+    <MapPin className="text-primary" size={16} />
+    <span className="text-xs text-slate-400">{sellerZona}</span>
+  </div>
+</div>
 
             {/* If vehicle is rejected, show rejection motive */}
             {isRejected && vehicle.motivo_rechazo && (
@@ -276,22 +316,24 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
           </div>
 
           {/* Seller Card (Vendido por) */}
-          {seller && (
+          {(seller || vehicle.vendedor_nombre) && (
             <div className="glass-panel p-6 rounded-[32px] border border-primary/10 space-y-4 animate-in fade-in duration-300">
               <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest block">Información del Vendedor</span>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary overflow-hidden shrink-0">
-                  {seller.avatar ? (
-                    <img src={seller.avatar} alt={seller.name} className="w-full h-full object-cover animate-in fade-in duration-300" />
+                  {sellerAvatar ? (
+                    <img src={sellerAvatar} alt={sellerName} className="w-full h-full object-cover animate-in fade-in duration-300" />
                   ) : (
-                    (seller.name || 'V').split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)
+                    sellerInitials
                   )}
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-white uppercase tracking-tight">
-                    {seller.name}
+                    {sellerName}
                   </h4>
                   <p className="text-[10px] text-slate-400 capitalize">Vendedor Certificado</p>
+                  <p className="text-[10px] text-slate-400 capitalize">Teléfono: {sellerPhone}</p>
+                  <p className="text-[10px] text-slate-400 capitalize">Zona: {sellerZona}</p>
                 </div>
               </div>
               <div className="border-t border-slate-850 pt-3 flex items-center justify-between">
@@ -300,7 +342,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
                   <div className="flex text-amber-400">
                     {[...Array(5)].map((_, i) => {
                       const val = i + 1;
-                      const average = seller.calificacion_promedio || 0.0;
+                      const average = seller?.calificacion_promedio || vehicle.vendedor_calificacion_promedio || 0.0;
                       return (
                         <Star 
                           key={i} 
@@ -311,7 +353,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
                     })}
                   </div>
                   <span className="text-xs font-black text-white">
-                    {seller.calificacion_promedio > 0 ? seller.calificacion_promedio.toFixed(1) : 'Nuevo'}
+                    {(seller?.calificacion_promedio || vehicle.vendedor_calificacion_promedio || 0) > 0 
+                      ? (seller?.calificacion_promedio || vehicle.vendedor_calificacion_promedio || 0).toFixed(1) 
+                      : 'Nuevo'}
                   </span>
                 </div>
               </div>
@@ -429,7 +473,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, us
                 </div>
               </div>
 
-              {!isApproved ? (
+              {isSold ? (
+                <div className="p-4 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl text-xs text-emerald-400 font-semibold leading-relaxed text-center">
+                  Este vehículo esta en aceptacion de respuesta y su pago está en custodia segura.
+                </div>
+              ) : !isApproved ? (
                 <div className="p-4 bg-amber-500/5 border border-amber-500/15 rounded-2xl text-xs text-amber-400 font-semibold leading-relaxed">
                   Este anuncio está en revisión técnica por nuestros inspectores. Podrás adquirirlo una vez que sea aprobado y certificado.
                 </div>

@@ -43,6 +43,7 @@ import ReportsScreen from './screens/ReportsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SalesHistoryScreen from './screens/SalesHistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import SellerCatalogScreen from './screens/SellerCatalogScreen';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -255,7 +256,7 @@ const App: React.FC = () => {
       case 'inventory':
         return (
           <ProtectedRoute allowedRoles={['admin', 'vendedor', 'comprador', 'inspector']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
-            <InventoryScreen userRole={userRole} onSelectProduct={(id) => navigateTo('product-detail', id)} onAddProduct={() => navigateTo('add-product')} />
+            <InventoryScreen userRole={userRole} currentUser={currentUser} onSelectProduct={(id) => navigateTo('product-detail', id)} onAddProduct={() => navigateTo('add-product')} />
           </ProtectedRoute>
         );
       case 'product-detail':
@@ -269,7 +270,7 @@ const App: React.FC = () => {
         case 'mis-compras':
           return <MisComprasScreen userRole={userRole} onBack={() => navigateTo('dashboard')} />;
         case 'ventas-pendientes':
-          return <VentasPendientesScreen userRole={userRole} onBack={() => navigateTo('dashboard')} />;
+          return <VentasPendientesScreen userRole={userRole} currentUser={currentUser} onBack={() => navigateTo('dashboard')} />;
         case 'pos':
         return (
           <ProtectedRoute allowedRoles={['admin', 'comprador']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
@@ -287,7 +288,13 @@ const App: React.FC = () => {
       case 'sales-history':
         return (
           <ProtectedRoute allowedRoles={['admin', 'vendedor', 'comprador', 'inspector']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
-            <SalesHistoryScreen userRole={userRole} />
+            <SalesHistoryScreen userRole={userRole} currentUser={currentUser} />
+          </ProtectedRoute>
+        );
+      case 'mis-publicaciones':
+        return (
+          <ProtectedRoute allowedRoles={['vendedor']} userRole={userRole} onAccessDenied={() => navigateTo('dashboard')}>
+            <SellerCatalogScreen onSelectProduct={(id) => navigateTo('product-detail', id)} currentUser={currentUser} />
           </ProtectedRoute>
         );
       case 'settings':
@@ -378,12 +385,21 @@ const App: React.FC = () => {
                 <SidebarItem 
                   icon={<Car size={20} />} 
                   label={
-                    userRole === 'vendedor' ? 'Mis Autos en Venta' : 
                     userRole === 'inspector' ? 'Vehículos a Inspeccionar' : 
                     'Catálogo de Autos'
                   } 
-                  active={currentScreen === 'inventory' || currentScreen === 'product-detail'} 
+                  active={currentScreen === 'inventory' || (currentScreen === 'product-detail' && currentScreen !== 'mis-publicaciones')} 
                   onClick={() => navigateTo('inventory')}
+                  roleColor={roleColor}
+                />
+              )}
+
+              {userRole === 'vendedor' && (
+                <SidebarItem 
+                  icon={<Car size={20} />} 
+                  label="Mis Autos en Venta" 
+                  active={currentScreen === 'mis-publicaciones'} 
+                  onClick={() => navigateTo('mis-publicaciones')}
                   roleColor={roleColor}
                 />
               )}

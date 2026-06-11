@@ -1,5 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com';
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/v1';
+const API_URL = process.env.VITE_API_URL || `http://localhost:${process.env.VITE_BACKEND_PORT || 8005}/api`;
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || process.env.VITE_GATEWAY_URL || "http://localhost:3001/v1";
+
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || '';
   return {
@@ -88,14 +89,7 @@ export const api = {
     return res.json();
   },
 
-  actualizarUsuario: async (id: string, datos: {
-    nombre?: string;
-    correo?: string;
-    rol?: string;
-    estado?: string;
-    kyc_estado?: string;
-    nueva_contrasena?: string;
-  }) => {
+  actualizarUsuario: async (id: string, datos: any) => {
     try {
       const res = await fetch(`${API_URL}/usuarios/${id}`, {
         method: "PUT",
@@ -307,6 +301,14 @@ export const api = {
     return res.json();
   },
 
+  getVehiculoDetail: async (id: string) => {
+    const res = await fetch(`${API_URL}/vehiculos/${id}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Error obteniendo detalles del vehículo");
+    return res.json();
+  },
+
   registrarVehiculo: async (vehiculo: any) => {
     const res = await fetch(`${API_URL}/vehiculos`, {
       method: "POST",
@@ -425,6 +427,18 @@ export const api = {
     return res.json();
   },
 
+  // 🛒 Obtener publicaciones del vendedor autenticado (mis vehículos en venta)
+  getMisPublicaciones: async () => {
+    const res = await fetch(`${API_URL}/vehiculos/mis-publicaciones`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error obteniendo tus publicaciones");
+    }
+    return res.json();
+  },
+
   verificarInspeccion: async (vehicleId: string, price: number) => {
     const res = await fetch(`${GATEWAY_URL}/inspections/verify/${vehicleId}/${price}`, {
       method: "GET",
@@ -462,6 +476,19 @@ export const api = {
     return res.json();
   },
 
+  // Accept a pending purchase (seller validates sale)
+  rechazarCompra: async (compraId: string) => {
+    const res = await fetch(`${API_URL}/transacciones/${compraId}/rechazar`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || `Error al rechazar la compra ${compraId}`);
+    }
+    return res.json();
+  },
+
 
  // Dentro del objeto exportado `api`
 comprarVehiculo: async (vehiculoId: string | number, metodoPago: string) => {
@@ -479,7 +506,6 @@ comprarVehiculo: async (vehiculoId: string | number, metodoPago: string) => {
 
 
 
-  // 🕵️‍♂️ NUEVO: COLA DE VALIDACIÓN PARA EL INSPECTOR
   obtenerColaAprobacion: async () => {
     const res = await fetch(`${API_URL}/vehiculos/cola-aprobacion`, {
       method: "GET",
@@ -491,6 +517,20 @@ comprarVehiculo: async (vehiculoId: string | number, metodoPago: string) => {
     }
     return res.json();
   },
+
+  validarVehiculo: async (id: string, accion: 'aprobado' | 'rechazado' | 'reiniciado_a_pendiente', motivo?: string) => {
+    const res = await fetch(`${API_URL}/vehiculos/${id}/validacion`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ accion, motivo })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || "Error al validar el vehículo");
+    }
+    return res.json();
+  },
+
 
   getCompras: async () => {
     const res = await fetch(`${API_URL}/transacciones/compras`, {

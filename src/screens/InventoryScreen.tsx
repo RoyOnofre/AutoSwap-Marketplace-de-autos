@@ -8,9 +8,10 @@ interface InventoryScreenProps {
   onSelectProduct: (id: string) => void;
   onAddProduct: () => void;
   userRole: UserRole;
+  currentUser: any;
 }
 
-const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAddProduct, userRole }) => {
+const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAddProduct, userRole, currentUser }) => {
   const isAdmin = userRole === 'admin';
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,26 +19,26 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAd
   const fetchProducts = async () => {
     try {
       const data = await api.getVehiculos();
-      // Ensure we have an array; if the API already returns compatible Product shape, use it directly.
-      const mapped = Array.isArray(data)
-        ? data.map((p: any) => ({
-            id: p.id ?? '',
-            name: p.titulo ?? p.name ?? 'Sin nombre',
-            sku: p.patente ?? p.id?.substring(0, 6).toUpperCase() ?? '',
-            category: (p.categoria ?? '').toUpperCase(),
-            price: p.precio_clp ?? 0,
-            stock: 1,
-            image:
-              p.fotos && p.fotos.length > 0
-                ? p.fotos[0].ruta_almacenamiento
-                : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
-            status:
-              p.estado_validacion === 'aprobado'
-                ? 'In Stock'
-                : 'Low Stock',
-            description: p.descripcion ?? ''
-          }))
-        : [];
+      const mapped = data.map((p: any) => {
+        return {
+          id: p.id ?? '',
+          name: p.titulo ?? p.name ?? 'Sin nombre',
+          sku: p.patente ?? p.id?.substring(0, 6).toUpperCase() ?? '',
+          category: (p.categoria ?? '').toUpperCase(),
+          price: p.precio_clp ?? 0,
+          stock: 1,
+          image:
+            p.fotos && p.fotos.length > 0
+              ? p.fotos[0].ruta_almacenamiento
+              : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
+          status: p.estado_validacion === 'aprobado' ? 'In Stock' : 'Low Stock',
+          description: p.descripcion ?? '',
+          vendedor_id: p.vendedor_id ?? null,
+          sellerName: p.vendedor_nombre ?? 'Desconocido',
+          sellerPhone: p.vendedor_celular ?? 'N/A',
+          sellerZona: p.vendedor_zona ?? 'N/A',
+        };
+      });
       setProducts(mapped);
     } catch (error) {
       console.error('Error cargando vehículos:', error);
@@ -49,7 +50,7 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ onSelectProduct, onAd
 
 useEffect(() => {
   fetchProducts();
-}, []);
+}, [currentUser]);
 
   if (loading) {
     return <div className="p-8 flex items-center justify-center h-full"><div className="text-primary font-bold">Cargando inventario de la base de datos...</div></div>;
@@ -60,10 +61,10 @@ useEffect(() => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white">
-            {isAdmin ? 'Inventario de Productos' : 'Catálogo de Productos'}
+            {isAdmin ? 'Inventario de Productos' : 'Catálogo de Autos'}
           </h1>
           <p className="text-slate-400">
-            {isAdmin ? 'Control total de stock y disponibilidad' : 'Explora nuestra amplia gama de tecnología premium'}
+            {isAdmin ? 'Control total de stock y disponibilidad' : 'Explora nuestra amplia gama de Autos en Venta'}
           </p>
         </div>
         {isAdmin && (
@@ -72,7 +73,7 @@ useEffect(() => {
               onClick={onAddProduct}
               className="flex items-center gap-2 px-6 py-3 bg-primary text-background-dark rounded-2xl text-sm font-bold glow-shadow hover:scale-105 transition-all"
             >
-              + Agregar Producto
+              + publicar auto
             </button>
           </div>
         )}
@@ -80,11 +81,11 @@ useEffect(() => {
 
       {/* Summary Cards */}
       {isAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <InventoryStatCard icon={<Package className="text-blue-400" />} label="Total SKUs" value="1,240" />
-          <InventoryStatCard icon={<AlertTriangle className="text-amber-400" />} label="Stock Bajo" value="18" />
-          <InventoryStatCard icon={<TrendingUp className="text-emerald-400" />} label="Valor Inventario" value="$245,800" />
-          <InventoryStatCard icon={<DollarSign className="text-primary" />} label="Ventas Hoy" value="$12,450" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">          
+          <InventoryStatCard icon={<AlertTriangle className="text-yellow-400" />} label="Bajo Stock" value="85" />
+          <InventoryStatCard icon={<TrendingUp className="text-green-400" />} label="Ventas Último Mes" value="320" />
+          <InventoryStatCard icon={<DollarSign className="text-emerald-400" />} label="Valor Total en Stock" value="$1.2M" />
+          <InventoryStatCard icon={<CheckCircle className="text-emerald-400" />} label="Vehículos Aprobados" value="150" />
         </div>
       )}
 
@@ -109,9 +110,11 @@ useEffect(() => {
             <span className="text-sm text-slate-400">Categoría:</span>
             <select className="bg-background-dark/50 border border-primary/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
               <option>Todas</option>
-              <option>Laptops</option>
-              <option>Smartphones</option>
-              <option>Audio</option>
+              <option>Nissan</option>
+              <option>Suzuki</option>
+              <option>Toyota</option>
+              <option>Mitsubishi</option>
+              <option>Kia</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -119,8 +122,8 @@ useEffect(() => {
             <select className="bg-background-dark/50 border border-primary/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
               <option>Todos</option>
               <option>Disponible</option>
-              <option>Stock Bajo</option>
-              <option>Agotado</option>
+              <option>Nuevos</option>
+              <option>Semi-nueva</option>
             </select>
           </div>
         </div>
@@ -185,6 +188,16 @@ useEffect(() => {
                 <div className="text-right">
                   <p className="text-xs text-slate-500 uppercase font-bold tracking-tighter">Stock</p>
                   <p className={`text-xl font-black ${product.stock <= 10 ? 'text-amber-400' : 'text-white'}`}>{product.stock}</p>
+                  {/* Línea divisoria y Datos del Vendedor */}
+                  <div className="border-t border-white/10 my-2 pt-2">
+                    <p className="text-xs text-slate-300 flex items-center gap-1 mb-1">
+                      👤 <span className="font-semibold text-slate-200">{product.sellerName || 'Vendedor Independiente'}</span>
+                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400">
+                      <span className="flex items-center gap-1">📞 {product.sellerPhone || 'S/N'}</span>
+                      <span className="flex items-center gap-1">📍 {product.sellerZona || 'No especificada'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -54,12 +54,14 @@ with engine.connect() as connection:
         """))
         connection.commit()
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS kyc_estado VARCHAR DEFAULT 'Pendiente';"))
+        connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono VARCHAR;"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bio TEXT;"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS language VARCHAR DEFAULT 'Español (Bolivia)';"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS timezone VARCHAR DEFAULT '(GMT-04:00) La Paz';"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS two_factor BOOLEAN DEFAULT FALSE;"))
         connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS calificacion_promedio FLOAT DEFAULT 0.0;"))
         connection.execute(text("ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS estado_venta VARCHAR DEFAULT 'disponible';"))
+        connection.execute(text("ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS disponible BOOLEAN DEFAULT TRUE;"))
         connection.execute(text("ALTER TABLE compras ADD COLUMN IF NOT EXISTS estado VARCHAR DEFAULT 'pendiente_aceptacion';"))
         connection.execute(text("ALTER TABLE compras ADD COLUMN IF NOT EXISTS motivo_rechazo VARCHAR;"))
         connection.commit()
@@ -139,6 +141,9 @@ class ActualizarUsuario(BaseModel):
     kyc_estado: Optional[str] = None
     nueva_contrasena: Optional[str] = None
     bio: Optional[str] = None
+    telefono: Optional[str] = None
+    ubicacion: Optional[str] = None
+    biografia: Optional[str] = None
     language: Optional[str] = None
     timezone: Optional[str] = None
     two_factor: Optional[bool] = None
@@ -258,6 +263,10 @@ def serializar_usuario(u: models.Usuario) -> dict:
         "iniciales": u.iniciales,
         "avatar": u.avatar,
         "bio": getattr(u, 'bio', ''),
+        "telefono": getattr(u, 'telefono', ''),
+        "direccion": getattr(u, 'ubicacion', ''),
+        "ubicacion": getattr(u, 'ubicacion', ''),
+        "biografia": getattr(u, 'biografia', ''),
         "language": getattr(u, 'language', 'Español (Bolivia)'),
         "timezone": getattr(u, 'timezone', '(GMT-04:00) La Paz'),
         "two_factor": getattr(u, 'two_factor', False),
@@ -390,6 +399,12 @@ def actualizar_usuario(usuario_id: str, datos: ActualizarUsuario, bd: Session = 
         usuario.kyc_estado = datos.kyc_estado
     if datos.bio is not None:
         usuario.bio = datos.bio
+    if datos.telefono is not None:
+        usuario.telefono = datos.telefono
+    if datos.ubicacion is not None:
+        usuario.ubicacion = datos.ubicacion
+    if datos.biografia is not None:
+        usuario.biografia = datos.biografia
     if datos.language is not None:
         usuario.language = datos.language
     if datos.timezone is not None:
@@ -638,41 +653,47 @@ def registrar_vehiculo(
         patente=datos.patente,
         region=datos.region,
         ciudad=datos.ciudad,
-        estado_validacion="aprobado",
+        estado_validacion="pendiente",
         es_activo=True
     )
-    bd.add(nuevo_vehiculo)
 
-    # Insertar fotos
-    if datos.fotos:
-        for foto in datos.fotos:
-            nueva_foto = models.FotoVehiculo(
-                id=str(uuid.uuid4()),
-                vehiculo_id=nuevo_vehiculo.id,
-                ruta_almacenamiento=foto.ruta_almacenamiento,
-                etiqueta_angulo=foto.etiqueta_angulo,
-                es_primaria=foto.es_primaria,
-                orden_visualizacion=foto.orden_visualizacion
-            )
-            bd.add(nueva_foto)
+    try:
+        bd.add(nuevo_vehiculo)
 
-    # Insertar equipamiento/características
-    if datos.caracteristicas:
-        for char in datos.caracteristicas:
-            nueva_char = models.CaracteristicaVehiculo(
-                id=str(uuid.uuid4()),
-                vehiculo_id=nuevo_vehiculo.id,
-                clave_caracteristica=char.clave_caracteristica,
-                etiqueta_caracteristica=char.etiqueta_caracteristica,
-                categoria=char.categoria
-            )
-            bd.add(nueva_char)
+        # Insertar fotos
+        if datos.fotos:
+            for foto in datos.fotos:
+                nueva_foto = models.FotoVehiculo(
+                    id=str(uuid.uuid4()),
+                    vehiculo_id=nuevo_vehiculo.id,
+                    ruta_almacenamiento=foto.ruta_almacenamiento,
+                    etiqueta_angulo=foto.etiqueta_angulo,
+                    es_primaria=foto.es_primaria,
+                    orden_visualizacion=foto.orden_visualizacion
+                )
+                bd.add(nueva_foto)
 
-    bd.commit()
-    bd.refresh(nuevo_vehiculo)
-    registrar_auditoria(bd, vendedor.id, "CREAR", f"Vehículo '{nuevo_vehiculo.marca} {nuevo_vehiculo.modelo}' registrado.")
-    
-    return {"mensaje": "Vehículo registrado exitosamente", "id": nuevo_vehiculo.id}
+        # Insertar equipamiento/características
+        if datos.caracteristicas:
+            for char in datos.caracteristicas:
+                nueva_char = models.CaracteristicaVehiculo(
+                    id=str(uuid.uuid4()),
+                    vehiculo_id=nuevo_vehiculo.id,
+                    clave_caracteristica=char.clave_caracteristica,
+                    etiqueta_caracteristica=char.etiqueta_caracteristica,
+                    categoria=char.categoria
+                )
+                bd.add(nueva_char)
+
+        bd.commit()
+        bd.refresh(nuevo_vehiculo)
+        registrar_auditoria(bd, vendedor.id, "CREAR", f"Vehículo '{nuevo_vehiculo.marca} {nuevo_vehiculo.modelo}' registrado.")
+        return {"mensaje": "Vehículo registrado exitosamente", "id": nuevo_vehiculo.id}
+    except Exception as e:
+        bd.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error al registrar vehículo en la base de datos: {str(e)}")
 
 
 @app.put("/api/vehiculos/{vehiculo_id}")
@@ -756,6 +777,170 @@ def eliminar_vehiculo(
     registrar_auditoria(bd, usuario.id, "ELIMINAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' borrado de forma lógica.")
     return {"mensaje": "Vehículo eliminado exitosamente"}
 
+@app.get("/api/vehiculos/mis-publicaciones")
+def obtener_mis_vehiculos(usuario: models.Usuario = Depends(obtener_usuario_desde_token), bd: Session = Depends(obtener_bd)):
+    """Endpoint privado para listar los vehículos publicados por el vendedor autenticado."""
+    vehiculos = bd.query(models.Vehiculo).filter(
+        models.Vehiculo.es_activo == True,
+        models.Vehiculo.vendedor_id == usuario.id,
+        models.Vehiculo.disponible == True,
+        models.Vehiculo.estado_venta == "disponible"
+    ).all()
+    resultado = []
+    for v in vehiculos:
+        resultado.append({
+            "id": v.id,
+            "titulo": v.titulo,
+            "marca": v.marca,
+            "modelo": v.modelo,
+            "precio_clp": v.precio_clp,
+            "kilometraje_km": v.kilometraje_km,
+            "anio": v.anio,
+            "patente": v.patente,
+            "transmision": v.transmision,
+            "tipo_combustible": v.tipo_combustible,
+            "region": v.region,
+            "ciudad": v.ciudad,
+            "vendedor_nombre": v.vendedor.nombre if v.vendedor else None,
+            "vendedor_celular": getattr(v.vendedor, "telefono", None),
+            "vendedor_zona": getattr(v.vendedor, "ciudad", None),
+            "estado_validacion": v.estado_validacion,
+            "motivo_rechazo": v.motivo_rechazo,
+            "es_activo": v.es_activo,
+            "creado_at": v.creado_at.isoformat() if v.creado_at else None,
+            "actualizado_at": v.actualizado_at.isoformat() if v.actualizado_at else None,
+            "fotos": [{
+                "id": f.id,
+                "ruta_almacenamiento": f.ruta_almacenamiento,
+                "etiqueta_angulo": f.etiqueta_angulo,
+                "es_primaria": f.es_primaria,
+                "orden_visualizacion": f.orden_visualizacion
+            } for f in v.fotos],
+            "caracteristicas": [{
+                "id": c.id,
+                "clave_caracteristica": c.clave_caracteristica,
+                "etiqueta_caracteristica": c.etiqueta_caracteristica,
+                "categoria": c.categoria
+            } for c in v.caracteristicas]
+        })
+    return resultado
+
+@app.get("/api/vehiculos/cola-aprobacion", status_code=status.HTTP_200_OK)
+def listar_cola_aprobacion(
+    inspector: models.Usuario = Depends(obtener_usuario_desde_token),
+    bd: Session = Depends(obtener_bd)
+):
+    """
+    Returns list of vehicles pending approval for inspector.
+    """
+    if inspector.rol != "inspector":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Acceso denegado: Solo el personal de inspección técnica puede acceder a esta cola.")
+    try:
+        vehiculos_pendientes = bd.query(models.Vehiculo).filter(
+            models.Vehiculo.estado_validacion == "pendiente",
+            models.Vehiculo.es_activo == True
+        ).order_by(models.Vehiculo.creado_at.asc()).all()
+        resultado = []
+        for v in vehiculos_pendientes:
+            resultado.append({
+                "id": v.id,
+                "vendedor_id": v.vendedor_id,
+                "titulo": v.titulo,
+                "descripcion": v.descripcion,
+                "marca": v.marca,
+                "modelo": v.modelo,
+                "anio": v.anio,
+                "kilometraje_km": v.kilometraje_km,
+                "precio_clp": v.precio_clp,
+                "categoria": v.categoria,
+                "tipo_combustible": v.tipo_combustible,
+                "transmision": v.transmision,
+                "color_exterior": v.color_exterior,
+                "patente": v.patente,
+                "region": v.region,
+                "ciudad": v.ciudad,
+                "estado_validacion": v.estado_validacion,
+                "motivo_rechazo": v.motivo_rechazo,
+                "es_activo": v.es_activo,
+                "disponible": v.disponible,
+                "estado_venta": v.estado_venta,
+                "creado_at": v.creado_at.isoformat() if v.creado_at else None,
+                "actualizado_at": v.actualizado_at.isoformat() if v.actualizado_at else None,
+                "vendedor_nombre": v.vendedor.nombre if v.vendedor else None,
+                "vendedor_celular": getattr(v.vendedor, "telefono", None),
+                "vendedor_zona": getattr(v.vendedor, "ciudad", None),
+                "fotos": [{
+                    "id": f.id,
+                    "ruta_almacenamiento": f.ruta_almacenamiento,
+                    "etiqueta_angulo": f.etiqueta_angulo,
+                    "es_primaria": f.es_primaria,
+                    "orden_visualizacion": f.orden_visualizacion
+                } for f in v.fotos],
+                "caracteristicas": [{
+                    "id": c.id,
+                    "clave_caracteristica": c.clave_caracteristica,
+                    "etiqueta_caracteristica": c.etiqueta_caracteristica,
+                    "categoria": c.categoria
+                } for c in v.caracteristicas]
+            })
+        return {
+            "exito": True,
+            "total_pendientes": len(resultado),
+            "vehiculos": resultado
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Error al recuperar la cola de aprobación: {str(e)}")
+
+@app.get("/api/vehiculos/{vehiculo_id}")
+def obtener_detalle_vehiculo(vehiculo_id: str, bd: Session = Depends(obtener_bd)):
+    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == vehiculo_id, models.Vehiculo.es_activo == True).first()
+    if not vehiculo:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado")
+    vendedor = vehiculo.vendedor
+    return {
+        "id": vehiculo.id,
+        "vendedor_id": vehiculo.vendedor_id,
+        "titulo": vehiculo.titulo,
+        "descripcion": vehiculo.descripcion,
+        "marca": vehiculo.marca,
+        "modelo": vehiculo.modelo,
+        "anio": vehiculo.anio,
+        "kilometraje_km": vehiculo.kilometraje_km,
+        "precio_clp": vehiculo.precio_clp,
+        "categoria": vehiculo.categoria,
+        "tipo_combustible": vehiculo.tipo_combustible,
+        "transmision": vehiculo.transmision,
+        "color_exterior": vehiculo.color_exterior,
+        "patente": vehiculo.patente,
+        "region": vehiculo.region,
+        "ciudad": vehiculo.ciudad,
+        "estado_validacion": vehiculo.estado_validacion,
+        "motivo_rechazo": vehiculo.motivo_rechazo,
+        "es_activo": vehiculo.es_activo,
+        "disponible": vehiculo.disponible,
+        "estado_venta": vehiculo.estado_venta,
+        "creado_at": vehiculo.creado_at.isoformat() if vehiculo.creado_at else None,
+        "actualizado_at": vehiculo.actualizado_at.isoformat() if vehiculo.actualizado_at else None,
+        "vendedor_nombre": vendedor.nombre if vendedor else None,
+        "vendedor_celular": getattr(vendedor, "telefono", None),
+        "vendedor_zona": getattr(vendedor, "ciudad", None),
+        "fotos": [{
+            "id": f.id,
+            "ruta_almacenamiento": f.ruta_almacenamiento,
+            "etiqueta_angulo": f.etiqueta_angulo,
+            "es_primaria": f.es_primaria,
+            "orden_visualizacion": f.orden_visualizacion
+        } for f in vehiculo.fotos],
+        "caracteristicas": [{
+            "id": c.id,
+            "clave_caracteristica": c.clave_caracteristica,
+            "etiqueta_caracteristica": c.etiqueta_caracteristica,
+            "categoria": c.categoria
+        } for c in vehiculo.caracteristicas]
+    }
+
 
 @app.get("/api/vehiculos")
 def listar_vehiculos(
@@ -777,7 +962,7 @@ def listar_vehiculos(
         except Exception:
             pass
 
-    query = bd.query(models.Vehiculo).filter(models.Vehiculo.es_activo == True)
+    query = bd.query(models.Vehiculo).filter(models.Vehiculo.es_activo == True).filter(models.Vehiculo.disponible == True).filter(models.Vehiculo.estado_venta == "disponible")
     if not es_autorizado:
         query = query.filter(models.Vehiculo.estado_validacion == "aprobado")
 
@@ -807,7 +992,16 @@ def listar_vehiculos(
             "marca": v.marca,
             "modelo": v.modelo,
             "precio_clp": v.precio_clp,
+            "kilometraje_km": v.kilometraje_km,
+            "anio": v.anio,
+            "patente": v.patente,
+            "transmision": v.transmision,
+            "tipo_combustible": v.tipo_combustible,
+            "region": v.region,
             "ciudad": v.ciudad,
+            "vendedor_nombre": v.vendedor.nombre if v.vendedor else None,
+            "vendedor_celular": getattr(v.vendedor, "telefono", None),
+            "vendedor_zona": getattr(v.vendedor, "ciudad", None),
             "estado_validacion": v.estado_validacion,
             "motivo_rechazo": v.motivo_rechazo,
             "es_activo": v.es_activo,
@@ -828,6 +1022,7 @@ def listar_vehiculos(
             } for c in v.caracteristicas]
         })
     return resultado
+
 
 
 @app.patch("/api/vehiculos/{vehiculo_id}/validacion")
@@ -864,6 +1059,13 @@ def validar_vehiculo(
     vehiculo.motivo_rechazo = datos.motivo if datos.accion == "rechazado" else None
     vehiculo.revisado_por = revisor.id
     vehiculo.revisado_at = datetime.datetime.utcnow()
+    
+    bd.commit()
+    bd.refresh(vehiculo)
+    
+    registrar_auditoria(bd, revisor.id, "VALIDAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' validado como {estado_nuevo}.")
+    return {"mensaje": f"Vehículo {estado_nuevo} exitosamente", "id": vehiculo.id, "estado": estado_nuevo}
+
 
 
 @app.put("/api/vehiculos/{vehiculo_id}/aprobar")
@@ -885,159 +1087,13 @@ def aprobar_vehiculo(
     bd.refresh(vehiculo)
     registrar_auditoria(bd, usuario.id, "APROBAR", f"Vehículo '{vehiculo.marca} {vehiculo.modelo}' aprobado manualmente.")
     return {"mensaje": "Vehículo aprobado exitosamente", "id": vehiculo.id}
-
-
-# Endpoint for processing vehicle purchase transaction
-# Duplicate purchase endpoint removed - original implementation retained above
-@app.post("/api/transacciones/comprar/{vehiculo_id}")
-async def comprar_vehiculo_endpoint(
-    vehiculo_id: str,
-    request: Request,
-    comprador: models.Usuario = Depends(obtener_usuario_desde_token),
-    bd: Session = Depends(obtener_bd)
-):
-    """Endpoint wrapper for vehicle purchase initiation."""
-    return await comprar_vehiculo(vehiculo_id, request, comprador, bd)
-
-# Accept a pending purchase (seller validates sale)
-@app.post("/api/transacciones/{compra_id}/aceptar")
-async def aceptar_compra(
-    compra_id: str,
-    vendedor: models.Usuario = Depends(obtener_usuario_desde_token),
-    bd: Session = Depends(obtener_bd)
-):
-    compra = bd.query(models.Compra).filter(models.Compra.id == compra_id).first()
-    if not compra:
-        raise HTTPException(status_code=404, detail="Compra no encontrada")
-    # Only the seller associated with the vehicle can accept
-    if venta := bd.query(models.Vehiculo).filter(models.Vehiculo.id == compra.vehiculo_id).first():
-        if venta.vendedor_id != vendedor.id and vendedor.rol != "admin":
-            raise HTTPException(status_code=403, detail="No autorizado para aceptar esta compra")
-        # Update states
-        compra.estado = "completado"
-        venta.estado_venta = "vendido"
-        bd.commit()
-        return {"mensaje": "Compra aceptada y vehículo marcado como vendido", "compra_id": compra.id}
-    raise HTTPException(status_code=400, detail="Vehículo asociado no encontrado")
-
-# Reject a pending purchase (seller declines sale)
-@app.post("/api/transacciones/{compra_id}/rechazar")
-async def rechazar_compra(
-    compra_id: str,
-    vendedor: models.Usuario = Depends(obtener_usuario_desde_token),
-    bd: Session = Depends(obtener_bd)
-):
-    compra = bd.query(models.Compra).filter(models.Compra.id == compra_id).first()
-    if not compra:
-        raise HTTPException(status_code=404, detail="Compra no encontrada")
-    vehiculo = bd.query(models.Vehiculo).filter(models.Vehiculo.id == compra.vehiculo_id).first()
-    if not vehiculo:
-        raise HTTPException(status_code=400, detail="Vehículo asociado no encontrado")
-    if vehiculo.vendedor_id != vendedor.id and vendedor.rol != "admin":
-        raise HTTPException(status_code=403, detail="No autorizado para rechazar esta compra")
-    compra.estado = "rechazado"
-    vehiculo.estado_venta = "disponible"
-    bd.commit()
-    return {"mensaje": "Compra rechazada y vehículo disponible nuevamente", "compra_id": compra.id}
-
-    """
-    Process a vehicle purchase.
-    Expects a JSON body with the selected payment method.
-    """
-    # Validate role
-    if comprador.rol != "comprador":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="Permisos insuficientes: Solo los usuarios con rol 'comprador' pueden adquirir vehículos.")
-
-    # Find active vehicle
-    vehiculo = bd.query(models.Vehiculo).filter(
-        models.Vehiculo.id == vehiculo_id,
-        models.Vehiculo.es_activo == True
-    ).first()
-    if not vehiculo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="El vehículo solicitado no existe o ya no se encuentra disponible en el catálogo.")
-    # Ensure vehicle is approved
-    if vehiculo.estado_validacion != "aprobado":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Operación inválida: El vehículo no cuenta con la aprobación del inspector.")
-
-    # Validate payment method from request body
-    data = await request.json()
-    metodo_pago = data.get("metodo_pago")
-    if metodo_pago not in ["QR", "EFECTIVO", "BANCA_MOVIL", "DOLARES"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Método de pago no válido. Use QR, EFECTIVO, BANCA_MOVIL o DOLARES.")
-
-    # Generate transaction code
-    prefijo_map = {"QR": "QR", "EFECTIVO": "EF", "BANCA_MOVIL": "BM", "DOLARES": "USD"}
-    prefijo = prefijo_map[metodo_pago]
-    timestamp = int(datetime.datetime.utcnow().timestamp())
-    codigo_transaccion = f"TX-{prefijo}-{timestamp}-{uuid.uuid4().hex[:8].upper()}"
-
-    try:
-        # Create purchase record
-        nueva_compra = models.Compra(
-            comprador_id=comprador.id,
-            vehiculo_id=vehiculo.id,
-            vendedor_id=vehiculo.vendedor_id,
-            metodo_pago=metodo_pago,
-            codigo_transaccion=codigo_transaccion,
-            monto=vehiculo.precio_clp,
-            fecha=datetime.datetime.utcnow()
-        )
-        bd.add(nueva_compra)
-
-        # Update vehicle status to reserved
-        vehiculo.estado_venta = "reservado"
-        bd.commit()
-        bd.refresh(nueva_compra)
-
-        return {
-            "exito": True,
-            "mensaje": "¡Compra iniciada exitosamente! El vehículo ha sido reservado.",
-            "compra_id": nueva_compra.id,
-            "codigo_transaccion": codigo_transaccion,
-            "nuevo_estado_vehiculo": "reservado"
-        }
-    except Exception as e:
-        bd.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=f"Error crítico en la base de datos de TechStore-Manager: {str(e)}")
-
-        # Duplicate purchase block removed - previously caused indentation error and redundant logic.
-
-    # Log error and continue
-    print(f"Error processing purchase: {e}")
+# Endpoints de transacciones removidos para evitar duplicidad. Se utilizan los definidos en backend/routers/transacciones.py.
 
 # Endpoint for inspector approval queue
-@app.get("/api/vehiculos/cola-aprobacion", status_code=status.HTTP_200_OK)
-def listar_cola_aprobacion(
-    inspector: models.Usuario = Depends(obtener_usuario_desde_token),
-    bd: Session = Depends(obtener_bd)
-):
-            """
-            Returns list of vehicles pending approval for inspector.
-            """
-            if inspector.rol != "inspector":
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="Acceso denegado: Solo el personal de inspección técnica puede acceder a esta cola.")
-            try:
-                vehiculos_pendientes = bd.query(models.Vehiculo).filter(
-                    models.Vehiculo.estado_validacion == "pendiente",
-                    models.Vehiculo.es_activo == True
-                ).order_by(models.Vehiculo.creado_at.asc()).all()
-                return {
-                    "exito": True,
-                    "total_pendientes": len(vehiculos_pendientes),
-                    "vehiculos": vehiculos_pendientes
-                }
-            except Exception as e:
-                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                                    detail=f"Error al recuperar la cola de aprobación: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn
-    print("Servidor MASTER API iniciado en 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/api'")
-    uvicorn.run(app, host="0.0.0.0", port=443)
+    print("Servidor MASTER API iniciado en http://localhost:8005")
+    uvicorn.run(app, host="0.0.0.0", port=8005)
     

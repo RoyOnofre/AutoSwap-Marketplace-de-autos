@@ -24,8 +24,15 @@ const InspectorScreen: React.FC<InspectorScreenProps> = ({ userRole, onBack }) =
   const fetchPending = async () => {
     setLoading(true);
     try {
-      const data = await api.getPendingInspections();
-      setListings(data);
+      const data = await api.obtenerColaAprobacion();
+      const mapped = (data.vehiculos || []).map((v: any) => ({
+        id: v.id,
+        title: v.titulo,
+        description: v.descripcion,
+        price: v.precio_clp,
+        seller_name: v.vendedor_nombre || 'Vendedor'
+      }));
+      setListings(mapped);
     } catch (e: any) {
       toast.error(e.message || 'Error al cargar inspecciones pendientes');
     } finally {
@@ -34,7 +41,7 @@ const InspectorScreen: React.FC<InspectorScreenProps> = ({ userRole, onBack }) =
   };
 
   useEffect(() => {
-    if (userRole === 'inspector') {
+    if (userRole === 'inspector' || userRole === 'admin') {
       fetchPending();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,12 +49,25 @@ const InspectorScreen: React.FC<InspectorScreenProps> = ({ userRole, onBack }) =
 
   const handleStatus = async (id: string, status: string) => {
     try {
-      await api.updateListingStatus(id, status);
-      toast.success(`Listado ${status === 'approved' ? 'aprobado' : 'rechazado'} correctamente`);
+      const mappedStatus = status === 'approved' ? 'aprobado' : 'rechazado';
+      let motivo = undefined;
+      
+      if (mappedStatus === 'rechazado') {
+        const razon = prompt("Por favor, ingresa el motivo del rechazo del vehículo:");
+        if (razon === null) return; // Inspector canceló la acción
+        if (!razon.trim()) {
+          toast.error("El motivo de rechazo es obligatorio.");
+          return;
+        }
+        motivo = razon.trim();
+      }
+
+      await api.validarVehiculo(id, mappedStatus, motivo);
+      toast.success(`Vehículo ${mappedStatus === 'aprobado' ? 'aprobado' : 'rechazado'} correctamente`);
       // Refresh list
       setListings((prev) => prev.filter((l) => l.id !== id));
     } catch (e: any) {
-      toast.error(e.message || 'Error actualizando el estado');
+      toast.error(e.message || 'Error actualizando el estado del vehículo');
     }
   };
 

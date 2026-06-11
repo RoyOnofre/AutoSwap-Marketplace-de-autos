@@ -10,8 +10,9 @@ services:
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_DATABASE_URL
-        value: postgresql+psycopg2://postgres.eiwmwozjuranqqniwrp:5jwyfwos0209@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
+        value: postgresql+psycopg2://postgres.eiwmwozjquranqqniwrp:5jwyfwos0209@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
       - key: SUPABASE_SERVICE_KEY
+  value: sb_secret_dC0gYalbhP1UtuU221bYNA_ojlbPWnj
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false

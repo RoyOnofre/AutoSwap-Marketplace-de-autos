@@ -8,9 +8,10 @@ import { RatingModal } from '../components/RatingModal';
 
 interface SalesHistoryScreenProps {
   userRole: UserRole;
+  currentUser: any;
 }
 
-const SalesHistoryScreen: React.FC<SalesHistoryScreenProps> = ({ userRole }) => {
+const SalesHistoryScreen: React.FC<SalesHistoryScreenProps> = ({ userRole, currentUser }) => {
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,7 +28,10 @@ const SalesHistoryScreen: React.FC<SalesHistoryScreenProps> = ({ userRole }) => 
         setSales(res);
       } else if (userRole === 'vendedor') {
         const res = await api.getVentas();
-        setSales(res);
+        const filtered = Array.isArray(res)
+          ? res.filter((s: any) => !s.vendedor?.nombre || s.vendedor.nombre.toLowerCase() === currentUser.name.toLowerCase())
+          : [];
+        setSales(filtered);
       } else {
         // Fallback for admin or inspector
         const savedSales = JSON.parse(localStorage.getItem('sales_history') || '[]');
@@ -61,7 +65,7 @@ const SalesHistoryScreen: React.FC<SalesHistoryScreenProps> = ({ userRole }) => 
 
   useEffect(() => {
     fetchHistory();
-  }, [userRole]);
+  }, [userRole, currentUser]);
 
   // Filter sales by search query (transaction code, vehicle model/brand, name)
   const filteredSales = sales.filter(s => {

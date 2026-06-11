@@ -104,9 +104,9 @@ const AddProductScreen: React.FC<AddProductScreenProps> = ({ onBack }) => {
         resetWizard();
         onBack();
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al publicar:', err);
-      alert('Hubo un error al publicar el vehículo.');
+      alert(`Hubo un error al publicar el vehículo: ${err.message || 'Error desconocido'}`);
     } finally {
       setIsSaving(false);
     }
