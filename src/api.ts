@@ -1,6 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com';
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/v1';
+// const API_URL = import.meta.env.VITE_API_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com';
+// const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/v1';
 
+// Configuración dinámica: Usa las variables de entorno de Vite o los servidores de desarrollo local
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8005/api';
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8005/v1';
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || '';
   return {
