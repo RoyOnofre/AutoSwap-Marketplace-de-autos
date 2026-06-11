@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com';
 const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://autoswap-marketplace-de-autos-rxb0.onrender.com/v1';
 
 const getAuthHeaders = () => {
