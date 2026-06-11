@@ -38,7 +38,7 @@ Este repocitorio contiene **tres entornos** que componen la plataforma completa:
    ```bash
    git clone <repo‑url>
    cd TechStore-Manager-   # raízaa del proyectoo
-   cp .env.example .env   # y eedita los valores
+   cp .env.example .env   # y eedita los valoresaaa
    ```
    Archivo `.env` debe contener (ejemplo):
    ```env

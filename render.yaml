@@ -13,7 +13,8 @@ services:
         value: postgresql+psycopg2://postgres.eiwmwozjuranqqniwrp:5jwyfwos0209@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
       - key: SUPABASE_SERVICE_KEY
         sync: false
-
+      - key: SUPABASE_JWT_SECRET
+        sync: false
       - key: MERCADO_PAGO_ACCESS_TOKEN
         sync: false
 
