@@ -634,8 +634,6 @@ def registrar_vehiculo(
         raise HTTPException(status_code=400, detail="El kilometraje no puede ser negativo")
     if datos.precio_clp <= 0:
         raise HTTPException(status_code=400, detail="El precio debe ser superior a 0")
-    
-
     # Crear entidad de vehículo
     nuevo_vehiculo = models.Vehiculo(
         id=str(uuid.uuid4()),

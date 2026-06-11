@@ -37,8 +37,8 @@ Este repocitorio contiene **tres entornos** que componen la plataforma completa:
 1. **Clonar y preparar variables de entorno**
    ```bash
    git clone <repo‑url>
-   cd TechStore-Manager-   # raíz del proyecto
-   cp .env.example .env   # y edita los valores
+   cd TechStore-Manager-   # raízaa del proyectoo
+   cp .env.example .env   # y eedita los valores
    ```
    Archivo `.env` debe contener (ejemplo):
    ```env
