@@ -1137,7 +1137,9 @@ def listar_cola_aprobacion(
                                     detail=f"Error al recuperar la cola de aprobación: {str(e)}")
 
 if __name__ == "__main__":
-    import uvicorn
-    print("Servidor MASTER API iniciado en https://autoswap-marketplace-de-autos-rxb0.onrender.com/api")
-    uvicorn.run(app, host="0.0.0.0", port=443)
+       import uvicorn
+       import os
+       puerto = int(os.environ.get("PORT", 8005))
+       print(f"Servidor iniciado en el puerto {puerto}")
+       uvicorn.run(app, host="0.0.0.0", port=puerto)
     
