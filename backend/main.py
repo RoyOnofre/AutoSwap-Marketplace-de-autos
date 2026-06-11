@@ -1141,5 +1141,5 @@ if __name__ == "__main__":
        import os
        puerto = int(os.environ.get("PORT", 8005))
        print(f"Servidor iniciado en el puerto {puerto}")
-       uvicorn.run(app, host="0.0.0.0", port=puerto)
+       uvicorn.run(app, host="0.0.0.0", port=443)
     
